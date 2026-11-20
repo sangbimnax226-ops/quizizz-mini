@@ -1,25 +1,53 @@
-import {
-  DB_BASE_URL,
-  META_PATH,
-  SET_QUESTIONS_PATH,
-  REQUESTS_PATH,
-  LEGACY_MULTI_PATH,
-  LEGACY_SINGLE_PATH,
-  OWNER_PIN_CODE,
-  isOwnerUnlocked,
-  setOwnerUnlocked,
-  fbGet,
-  fbPut,
-  fbPost,
-  fbDelete
-} from './firebase.js';
+import { OWNER_PIN_CODE as PIN_FROM_FB, isOwnerUnlocked, setOwnerUnlocked } from './firebase.js';
+
+const DB_BASE_URL = 'https://quizizz-mini-shared-e3865-default-rtdb.asia-southeast1.firebasedatabase.app';
+const META_PATH = 'quizizz_mini/sets_meta';
+const SET_QUESTIONS_PATH = (setId) => `quizizz_mini/sets/${encodeURIComponent(setId)}`;
+const REQUESTS_PATH = 'quizizz_mini/access_requests';
+const LEGACY_MULTI_PATH = 'quizizz_mini/sets';
+const LEGACY_SINGLE_PATH = 'quizizz_mini/questions';
+const OWNER_PIN_CODE = PIN_FROM_FB || '226';
+
+function buildFbUrl(path) {
+  const clean = String(path || '').replace(/^\/+/, '').replace(/\.json$/i, '');
+  return `${DB_BASE_URL}/${clean}.json`;
+}
+
+async function fbGet(path) {
+  const res = await fetch(buildFbUrl(path), { cache: 'no-store' });
+  if (!res.ok) throw new Error(`GET ${res.status}`);
+  return await res.json();
+}
+
+async function fbPut(path, data) {
+  const res = await fetch(buildFbUrl(path), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error(`PUT ${res.status}`);
+  return await res.json();
+}
+
+async function fbPost(path, data) {
+  const res = await fetch(buildFbUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error(`POST ${res.status}`);
+  return await res.json();
+}
+
+async function fbDelete(path) {
+  const res = await fetch(buildFbUrl(path), { method: 'DELETE' });
+  if (!res.ok) throw new Error(`DELETE ${res.status}`);
+  return await res.json();
+}
 
 const LOCAL_PREF_KEY = 'quizizz_mini_pref_v3';
 const GUEST_REQ_ID_KEY = 'quizizz_mini_guest_req_id_v1';
 
-// =========================================================================
-// 1. SOUND ENGINE
-// =========================================================================
 const SoundEngine = (() => {
   let audioCtx = null;
   let enabled = true;
@@ -87,9 +115,6 @@ const SoundEngine = (() => {
   };
 })();
 
-// =========================================================================
-// 2. DATA HELPERS & STATE
-// =========================================================================
 function sanitizeQuestions(rawList) {
   if (!Array.isArray(rawList)) return [];
   return rawList
@@ -206,7 +231,6 @@ const state = {
   isBusy: false,
   pendingDeleteSetId: null,
   view: 'lobby',
-  // Gameplay
   deck: [],
   currentIndex: 0,
   score: 0,
@@ -218,14 +242,10 @@ const state = {
   noTimeLimit: false,
   timerInterval: null,
   history: [],
-  // Drawer
   drawerTab: 'bulk',
   editingIndex: null
 };
 
-// =========================================================================
-// 3. DOM & TOASTS
-// =========================================================================
 const dom = {
   toastContainer: document.getElementById('toastContainer'),
   homeLogoBtn: document.getElementById('homeLogoBtn'),
@@ -240,24 +260,16 @@ const dom = {
   ownerPinInput: document.getElementById('ownerPinInput'),
   ownerUnlockBtn: document.getElementById('ownerUnlockBtn'),
   ownerLockBtn: document.getElementById('ownerLockBtn'),
-
-  // Guest request permission panel
   guestRequestPanel: document.getElementById('guestRequestPanel'),
   guestRequestStatusText: document.getElementById('guestRequestStatusText'),
   guestNameInput: document.getElementById('guestNameInput'),
   guestReasonInput: document.getElementById('guestReasonInput'),
   sendAccessRequestBtn: document.getElementById('sendAccessRequestBtn'),
-
-  // Owner requests inbox
   ownerRequestsPanel: document.getElementById('ownerRequestsPanel'),
   ownerRequestsList: document.getElementById('ownerRequestsList'),
-
-  // Views
   lobbyView: document.getElementById('lobbyView'),
   gameView: document.getElementById('gameView'),
   summaryView: document.getElementById('summaryView'),
-
-  // Lobby & Set Switcher
   lobbyStatusDot: document.getElementById('lobbyStatusDot'),
   lobbyStatusBadge: document.getElementById('lobbyStatusBadge'),
   cloudSyncBadge: document.getElementById('cloudSyncBadge'),
@@ -277,12 +289,9 @@ const dom = {
   confirmRenameSetBtn: document.getElementById('confirmRenameSetBtn'),
   lobbyPasteCodeBtn: document.getElementById('lobbyPasteCodeBtn'),
   lobbyManualCreateBtn: document.getElementById('lobbyManualCreateBtn'),
-
-  // Time per question controls
   playTimeOverrideSelect: document.getElementById('playTimeOverrideSelect'),
   bulkSetTimeInput: document.getElementById('bulkSetTimeInput'),
   applyTimeToAllBtn: document.getElementById('applyTimeToAllBtn'),
-
   shuffleQuestionsCheckbox: document.getElementById('shuffleQuestionsCheckbox'),
   shuffleOptionsCheckbox: document.getElementById('shuffleOptionsCheckbox'),
   startGameBtn: document.getElementById('startGameBtn'),
@@ -291,8 +300,6 @@ const dom = {
   undoDeleteBtn: document.getElementById('undoDeleteBtn'),
   lobbyListSummary: document.getElementById('lobbyListSummary'),
   lobbyQuestionsContainer: document.getElementById('lobbyQuestionsContainer'),
-
-  // Gameplay
   exitGameBtn: document.getElementById('exitGameBtn'),
   currentQNum: document.getElementById('currentQNum'),
   totalQNum: document.getElementById('totalQNum'),
@@ -310,8 +317,6 @@ const dom = {
   feedbackPointsPill: document.getElementById('feedbackPointsPill'),
   feedbackExplanation: document.getElementById('feedbackExplanation'),
   nextQuestionBtn: document.getElementById('nextQuestionBtn'),
-
-  // Summary
   summaryTrophy: document.getElementById('summaryTrophy'),
   summaryHeadline: document.getElementById('summaryHeadline'),
   summarySubtext: document.getElementById('summarySubtext'),
@@ -325,8 +330,6 @@ const dom = {
   backToLobbyBtn: document.getElementById('backToLobbyBtn'),
   reviewSummaryCount: document.getElementById('reviewSummaryCount'),
   reviewList: document.getElementById('reviewList'),
-
-  // Drawer
   builderOverlay: document.getElementById('builderOverlay'),
   builderDrawer: document.getElementById('builderDrawer'),
   closeBuilderBtn: document.getElementById('closeBuilderBtn'),
@@ -343,8 +346,6 @@ const dom = {
   appendImportBtn: document.getElementById('appendImportBtn'),
   bulkLoadedCount: document.getElementById('bulkLoadedCount'),
   bulkLoadedList: document.getElementById('bulkLoadedList'),
-
-  // Manual Form
   formHeaderTitle: document.getElementById('formHeaderTitle'),
   resetFormFieldsBtn: document.getElementById('resetFormFieldsBtn'),
   qPromptInput: document.getElementById('qPromptInput'),
@@ -417,9 +418,6 @@ function requireOwnerOnly(actionLabel = 'thực hiện thao tác quản trị n�
   return false;
 }
 
-// =========================================================================
-// 4. OWNER SESSION & ACCESS REQUESTS (ACCEPT / REJECT / DISMISS)
-// =========================================================================
 function unlockOwnerMode() {
   const pin = dom.ownerPinInput.value.trim();
   if (pin !== OWNER_PIN_CODE) {
@@ -535,11 +533,7 @@ async function loadAccessRequests() {
 async function decideAccessRequest(reqId, decision) {
   if (!requireOwnerOnly('duyệt yêu cầu quyền sửa') || !reqId) return;
   try {
-    const base = String(DB_BASE_URL || '').replace(/\/+$/, '');
-    const cleanPath = String(REQUESTS_PATH || '').replace(/^\/+|\/+$/g, '').replace(/\.json$/i, '');
-    const url = `${base}/${cleanPath}/${encodeURIComponent(reqId)}.json`;
-
-    const res = await fetch(url, {
+    const res = await fetch(buildFbUrl(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: decision, reviewedAt: Date.now() })
@@ -654,9 +648,6 @@ function syncRoleUI() {
   });
 }
 
-// =========================================================================
-// 5. LAZY SET LOADING & SET ACTIONS
-// =========================================================================
 function resetDeleteGuard() {
   state.pendingDeleteSetId = null;
   if (dom.deleteCurrentSetBtn) {
@@ -748,7 +739,7 @@ async function initCloudMetadataAndActiveSet() {
       state.syncStatus = 'offline';
       syncAllUI();
     }
-  }, 6000);
+  }, 5000);
 
   try {
     const rawMeta = await fbGet(META_PATH);
@@ -1075,9 +1066,6 @@ async function undoLastDeletedQuestion() {
   showToast('Đã khôi phục câu hỏi vừa xóa!', 'success');
 }
 
-// =========================================================================
-// 6. UI RENDERING (LOBBY, GAMEPLAY, SUMMARY)
-// =========================================================================
 function setBusyState(busy) {
   state.isBusy = busy;
   [
@@ -1269,9 +1257,6 @@ function renderLobby() {
   dom.lobbyQuestionsContainer.appendChild(listEl);
 }
 
-// =========================================================================
-// 7. GAMEPLAY & PRACTICE MISTAKES
-// =========================================================================
 const QUIZIZZ_CARDS = [
   { cls: 'qz-card-red', shape: '▲', letter: 'A', key: '1 / A' },
   { cls: 'qz-card-blue', shape: '◆', letter: 'B', key: '2 / B' },
@@ -1629,9 +1614,6 @@ function renderSummary() {
   dom.reviewList.appendChild(reviewFrag);
 }
 
-// =========================================================================
-// 8. DRAWER, EXPORT & EVENTS
-// =========================================================================
 async function openDrawer(tab = 'bulk', editIdx = null, suggestNewSet = false) {
   if (!requireEditor('mở khung nhập/sửa câu hỏi')) return;
   setDrawerTab(tab);
