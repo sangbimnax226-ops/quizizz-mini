@@ -1,4 +1,5 @@
 import {
+  DB_BASE_URL,
   META_PATH,
   SET_QUESTIONS_PATH,
   REQUESTS_PATH,
@@ -7,8 +8,6 @@ import {
   OWNER_PIN_CODE,
   isOwnerUnlocked,
   setOwnerUnlocked,
-  getSavedRequestId,
-  setSavedRequestId,
   fbGet,
   fbPut,
   fbPost,
@@ -16,6 +15,7 @@ import {
 } from './firebase.js';
 
 const LOCAL_PREF_KEY = 'quizizz_mini_pref_v3';
+const GUEST_REQ_ID_KEY = 'quizizz_mini_guest_req_id_v1';
 
 // =========================================================================
 // 1. SOUND ENGINE
@@ -102,7 +102,7 @@ function sanitizeQuestions(rawList) {
         ? q.correctIndex
         : 0,
       timeLimit: Number.isFinite(Number(q.timeLimit))
-        ? Math.max(5, Math.min(120, Math.round(Number(q.timeLimit))))
+        ? Math.max(5, Math.min(300, Math.round(Number(q.timeLimit))))
         : 20,
       explanation: String(q.explanation || '').trim()
     }))
@@ -164,6 +164,21 @@ function saveLightweightPref() {
   } catch (e) {}
 }
 
+function getGuestRequestId() {
+  try {
+    return localStorage.getItem(GUEST_REQ_ID_KEY) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function setGuestRequestId(id) {
+  try {
+    if (id) localStorage.setItem(GUEST_REQ_ID_KEY, id);
+    else localStorage.removeItem(GUEST_REQ_ID_KEY);
+  } catch (e) {}
+}
+
 const pref = loadLightweightPref();
 const initialDefault = makeMetaEntry(`set-${Date.now()}`, 'Đề 1', 0, false);
 const initialMeta = pref?.setsMeta?.length ? normalizeMetaList(pref.setsMeta) : [initialDefault];
@@ -178,9 +193,7 @@ if (pref?.activeSetCache?.id && Array.isArray(pref.activeSetCache.questions)) {
 
 const state = {
   isOwner: isOwnerUnlocked(),
-  approvedGuestMode: false,
-  myRequestId: getSavedRequestId(),
-  myRequestStatus: '', // '' | 'pending' | 'approved' | 'rejected'
+  guestApproved: false,
   setsMeta: initialMeta,
   activeSetId: initialActiveId,
   setFilterText: '',
@@ -202,6 +215,7 @@ const state = {
   answeredCurrent: false,
   timeLeft: 20,
   currentTimeLimit: 20,
+  noTimeLimit: false,
   timerInterval: null,
   history: [],
   // Drawer
@@ -229,6 +243,7 @@ const dom = {
 
   // Guest request permission panel
   guestRequestPanel: document.getElementById('guestRequestPanel'),
+  guestRequestStatusText: document.getElementById('guestRequestStatusText'),
   guestNameInput: document.getElementById('guestNameInput'),
   guestReasonInput: document.getElementById('guestReasonInput'),
   sendAccessRequestBtn: document.getElementById('sendAccessRequestBtn'),
@@ -262,6 +277,12 @@ const dom = {
   confirmRenameSetBtn: document.getElementById('confirmRenameSetBtn'),
   lobbyPasteCodeBtn: document.getElementById('lobbyPasteCodeBtn'),
   lobbyManualCreateBtn: document.getElementById('lobbyManualCreateBtn'),
+
+  // Time per question controls
+  playTimeOverrideSelect: document.getElementById('playTimeOverrideSelect'),
+  bulkSetTimeInput: document.getElementById('bulkSetTimeInput'),
+  applyTimeToAllBtn: document.getElementById('applyTimeToAllBtn'),
+
   shuffleQuestionsCheckbox: document.getElementById('shuffleQuestionsCheckbox'),
   shuffleOptionsCheckbox: document.getElementById('shuffleOptionsCheckbox'),
   startGameBtn: document.getElementById('startGameBtn'),
@@ -280,6 +301,7 @@ const dom = {
   liveScore: document.getElementById('liveScore'),
   timerPill: document.getElementById('timerPill'),
   timerText: document.getElementById('timerText'),
+  timerUnitText: document.getElementById('timerUnitText'),
   timerBar: document.getElementById('timerBar'),
   questionPrompt: document.getElementById('questionPrompt'),
   answersGrid: document.getElementById('answersGrid'),
@@ -314,6 +336,7 @@ const dom = {
   bulkModePanel: document.getElementById('bulkModePanel'),
   formModePanel: document.getElementById('formModePanel'),
   targetSetNameInput: document.getElementById('targetSetNameInput'),
+  bulkDefaultTimeInput: document.getElementById('bulkDefaultTimeInput'),
   clearTextareaBtn: document.getElementById('clearTextareaBtn'),
   bulkPasteTextarea: document.getElementById('bulkPasteTextarea'),
   saveAsNewSetBtn: document.getElementById('saveAsNewSetBtn'),
@@ -378,18 +401,24 @@ function shuffleArray(list) {
 }
 
 function canEditContent() {
-  return Boolean(state.isOwner || state.approvedGuestMode);
+  return state.isOwner || state.guestApproved;
 }
 
-function requireOwner(actionLabel = 'chỉnh sửa/thêm/xóa bộ đề') {
+function requireEditor(actionLabel = 'chỉnh sửa/thêm/xóa bộ đề') {
   if (canEditContent()) return true;
-  showToast(`Bạn chưa có quyền ${actionLabel}. Hãy gửi yêu cầu quyền sửa ở khung bên dưới.`, 'error');
+  showToast(`Chỉ chủ sở hữu hoặc người được duyệt mới được ${actionLabel}.`, 'error');
   dom.guestRequestPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   return false;
 }
 
+function requireOwnerOnly(actionLabel = 'thực hiện thao tác quản trị này') {
+  if (state.isOwner) return true;
+  showToast(`Chỉ chủ sở hữu (PIN) mới được ${actionLabel}.`, 'error');
+  return false;
+}
+
 // =========================================================================
-// 4. OWNER SESSION & APPROVAL WORKFLOW (ACCEPT / REJECT / DISMISS)
+// 4. OWNER SESSION & ACCESS REQUESTS (ACCEPT / REJECT / DISMISS)
 // =========================================================================
 function unlockOwnerMode() {
   const pin = dom.ownerPinInput.value.trim();
@@ -400,7 +429,6 @@ function unlockOwnerMode() {
   }
   setOwnerUnlocked(true, true);
   state.isOwner = true;
-  state.approvedGuestMode = false;
   dom.ownerPinInput.value = '';
   SoundEngine.correct(1);
   showToast('Đã mở quyền Chủ sở hữu!', 'success');
@@ -412,36 +440,9 @@ function lockOwnerMode() {
   SoundEngine.click();
   setOwnerUnlocked(false, true);
   state.isOwner = false;
-  state.approvedGuestMode = false;
   resetDeleteGuard();
   syncRoleUI();
-  showToast('Đã khóa về chế độ Xem & Chơi (Khách).', 'info');
-}
-
-async function checkMyRequestApproval() {
-  if (state.isOwner || !state.myRequestId) return;
-  try {
-    const req = await fbGet(`${REQUESTS_PATH}/${encodeURIComponent(state.myRequestId)}.json`);
-    if (!req) {
-      state.myRequestId = '';
-      state.myRequestStatus = '';
-      state.approvedGuestMode = false;
-      setSavedRequestId('');
-      syncRoleUI();
-      return;
-    }
-    const prevStatus = state.myRequestStatus;
-    state.myRequestStatus = req.status || 'pending';
-    state.approvedGuestMode = state.myRequestStatus === 'approved';
-    syncRoleUI();
-
-    if (prevStatus !== 'approved' && state.myRequestStatus === 'approved') {
-      SoundEngine.correct(1);
-      showToast('Chủ sở hữu đã CHẤP NHẬN yêu cầu sửa của bạn!', 'success');
-    } else if (prevStatus !== 'rejected' && state.myRequestStatus === 'rejected') {
-      showToast('Chủ sở hữu đã từ chối yêu cầu quyền sửa.', 'error');
-    }
-  } catch (e) {}
+  showToast('Đã khóa về chế độ Xem & Chơi.', 'info');
 }
 
 async function submitEditRequest() {
@@ -465,19 +466,55 @@ async function submitEditRequest() {
       createdAt: Date.now()
     });
     if (res && res.name) {
-      state.myRequestId = res.name;
-      state.myRequestStatus = 'pending';
-      setSavedRequestId(res.name);
+      setGuestRequestId(res.name);
+      state.guestApproved = false;
     }
     dom.guestReasonInput.value = '';
     SoundEngine.correct(1);
-    syncRoleUI();
     showToast('Đã gửi yêu cầu quyền sửa tới chủ sở hữu!', 'success');
+    checkGuestRequestStatus();
   } catch (err) {
     showToast('Không gửi được yêu cầu lúc này.', 'error');
   } finally {
     setBusyState(false);
   }
+}
+
+async function checkGuestRequestStatus() {
+  const reqId = getGuestRequestId();
+  if (!reqId) {
+    state.guestApproved = false;
+    if (dom.guestRequestStatusText) dom.guestRequestStatusText.textContent = '';
+    syncRoleUI();
+    return;
+  }
+  try {
+    const req = await fbGet(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`);
+    if (!req) {
+      state.guestApproved = false;
+      setGuestRequestId('');
+      if (dom.guestRequestStatusText) dom.guestRequestStatusText.textContent = '';
+    } else if (req.status === 'approved') {
+      state.guestApproved = true;
+      if (dom.guestRequestStatusText) {
+        dom.guestRequestStatusText.className = 'text-xs font-extrabold text-emerald-300';
+        dom.guestRequestStatusText.textContent = '✅ Đã được chủ sở hữu chấp nhận quyền sửa!';
+      }
+    } else if (req.status === 'rejected') {
+      state.guestApproved = false;
+      if (dom.guestRequestStatusText) {
+        dom.guestRequestStatusText.className = 'text-xs font-extrabold text-rose-300';
+        dom.guestRequestStatusText.textContent = '⛔ Yêu cầu của bạn đã bị từ chối.';
+      }
+    } else {
+      state.guestApproved = false;
+      if (dom.guestRequestStatusText) {
+        dom.guestRequestStatusText.className = 'text-xs font-bold text-amber-200';
+        dom.guestRequestStatusText.textContent = '⏳ Đang chờ chủ sở hữu duyệt...';
+      }
+    }
+    syncRoleUI();
+  } catch (e) {}
 }
 
 async function loadAccessRequests() {
@@ -496,18 +533,25 @@ async function loadAccessRequests() {
 }
 
 async function decideAccessRequest(reqId, decision) {
-  if (!state.isOwner || !reqId) return;
+  if (!requireOwnerOnly('duyệt yêu cầu quyền sửa') || !reqId) return;
   try {
-    await fbPut(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}/status.json`, decision);
+    const base = String(DB_BASE_URL || '').replace(/\/+$/, '');
+    const cleanPath = String(REQUESTS_PATH || '').replace(/^\/+|\/+$/g, '');
+    const url = `${base}/${cleanPath}/${encodeURIComponent(reqId)}.json`;
+
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: decision, reviewedAt: Date.now() })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     state.accessRequests = state.accessRequests.map(r =>
       r.id === reqId ? { ...r, status: decision } : r
     );
     renderOwnerRequests();
-    SoundEngine.click();
     showToast(
-      decision === 'approved'
-        ? 'Đã CHẤP NHẬN quyền sửa cho người dùng này!'
-        : 'Đã TỪ CHỐI yêu cầu quyền sửa.',
+      decision === 'approved' ? 'Đã chấp nhận yêu cầu quyền sửa!' : 'Đã từ chối yêu cầu quyền sửa.',
       decision === 'approved' ? 'success' : 'info'
     );
   } catch (e) {
@@ -516,9 +560,9 @@ async function decideAccessRequest(reqId, decision) {
 }
 
 async function dismissAccessRequest(reqId) {
-  if (!state.isOwner || !reqId) return;
+  if (!requireOwnerOnly('xóa yêu cầu') || !reqId) return;
   try {
-    await fbDelete(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}.json`);
+    await fbDelete(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`);
     state.accessRequests = state.accessRequests.filter(r => r.id !== reqId);
     renderOwnerRequests();
     showToast('Đã xóa yêu cầu khỏi danh sách.', 'info');
@@ -531,14 +575,6 @@ function renderOwnerRequests() {
   if (!state.isOwner || !dom.ownerRequestsPanel) return;
   dom.ownerRequestsPanel.classList.remove('hidden');
 
-  const pendingCount = state.accessRequests.filter(r => (r.status || 'pending') === 'pending').length;
-  const headerEl = dom.ownerRequestsPanel.querySelector('div');
-  if (headerEl) {
-    headerEl.textContent = pendingCount > 0
-      ? `📬 Yêu cầu quyền sửa từ người dùng (${pendingCount} đang chờ)`
-      : '📬 Yêu cầu quyền sửa từ người dùng';
-  }
-
   if (state.accessRequests.length === 0) {
     dom.ownerRequestsList.innerHTML = `<p class="text-xs text-purple-200/65">Chưa có yêu cầu xin quyền sửa nào.</p>`;
     return;
@@ -546,24 +582,23 @@ function renderOwnerRequests() {
 
   const frag = document.createDocumentFragment();
   state.accessRequests.forEach(req => {
-    const status = req.status || 'pending';
-    const statusText = status === 'approved'
-      ? '✅ Đã chấp nhận'
-      : status === 'rejected'
-        ? '⛔ Đã từ chối'
-        : '⏳ Đang chờ duyệt';
-
     const row = document.createElement('div');
     row.className = 'rounded-xl bg-black/30 border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5';
+    const statusLabel = req.status === 'approved'
+      ? '✅ Đã chấp nhận'
+      : req.status === 'rejected'
+        ? '⛔ Đã từ chối'
+        : '⏳ Đang chờ';
+
     row.innerHTML = `
       <div class="min-w-0 flex-1 space-y-0.5">
-        <div class="text-xs font-extrabold text-[#ffd000]">${escapeHtml(req.requester || 'Khách')} • ${escapeHtml(req.setName || 'Bộ đề')} • <span class="text-purple-100">${statusText}</span></div>
+        <div class="text-xs font-extrabold text-[#ffd000]">${escapeHtml(req.requester || 'Khách')} • ${escapeHtml(req.setName || 'Bộ đề')} • <span class="text-white">${statusLabel}</span></div>
         <p class="text-xs text-white leading-relaxed">${escapeHtml(req.reason || '')}</p>
       </div>
       <div class="flex flex-wrap items-center gap-1.5 shrink-0">
         <button type="button" data-act="accept" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#092110] text-[11px] font-extrabold cursor-pointer">Chấp nhận</button>
         <button type="button" data-act="reject" class="px-2.5 py-1 rounded-lg bg-rose-500/25 hover:bg-rose-500/40 text-rose-200 text-[11px] font-bold cursor-pointer">Từ chối</button>
-        <button type="button" data-act="dismiss" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-bold cursor-pointer">Đóng</button>
+        <button type="button" data-act="dismiss" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-bold cursor-pointer">Đóng</button>
       </div>
     `;
     row.querySelector('[data-act="accept"]').addEventListener('click', () => decideAccessRequest(req.id, 'approved'));
@@ -577,7 +612,6 @@ function renderOwnerRequests() {
 
 function syncRoleUI() {
   const editable = canEditContent();
-
   if (state.isOwner) {
     dom.ownerRoleBadge.textContent = '👑 Chủ sở hữu (Toàn quyền sửa/xóa)';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40';
@@ -586,21 +620,16 @@ function syncRoleUI() {
     dom.ownerLockBtn.classList.remove('hidden');
     dom.guestRequestPanel.classList.add('hidden');
     renderOwnerRequests();
-  } else if (state.approvedGuestMode) {
-    dom.ownerRoleBadge.textContent = '✅ Đã được chủ sở hữu cấp quyền sửa';
+  } else if (state.guestApproved) {
+    dom.ownerRoleBadge.textContent = '✅ Đã được cấp quyền sửa đề';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40';
     dom.ownerPinInput.classList.remove('hidden');
     dom.ownerUnlockBtn.classList.remove('hidden');
     dom.ownerLockBtn.classList.add('hidden');
-    dom.guestRequestPanel.classList.add('hidden');
+    dom.guestRequestPanel.classList.remove('hidden');
     dom.ownerRequestsPanel.classList.add('hidden');
   } else {
-    const statusSuffix = state.myRequestStatus === 'pending'
-      ? ' • ⏳ Đang chờ chủ duyệt'
-      : state.myRequestStatus === 'rejected'
-        ? ' • ⛔ Yêu cầu bị từ chối'
-        : '';
-    dom.ownerRoleBadge.textContent = `👀 Chế độ Xem & Chơi${statusSuffix}`;
+    dom.ownerRoleBadge.textContent = '👀 Chế độ Xem & Chơi (Chỉ chủ mới sửa/xóa)';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-400/35';
     dom.ownerPinInput.classList.remove('hidden');
     dom.ownerUnlockBtn.classList.remove('hidden');
@@ -615,13 +644,13 @@ function syncRoleUI() {
     dom.pinSetBtn,
     dom.duplicateSetBtn,
     dom.deleteCurrentSetBtn,
+    dom.applyTimeToAllBtn,
     dom.drawerClearCurrentSetBtn,
     dom.saveAsNewSetBtn,
     dom.appendImportBtn,
     dom.saveManualQuestionBtn
   ].forEach(btn => {
-    if (!btn) return;
-    btn.classList.toggle('opacity-50', !editable);
+    if (btn) btn.classList.toggle('opacity-50', !editable);
   });
 }
 
@@ -764,15 +793,38 @@ async function initCloudMetadataAndActiveSet() {
     syncAllUI();
     await ensureSetQuestionsLoaded(state.activeSetId, false);
     if (state.isOwner) await loadAccessRequests();
-    else await checkMyRequestApproval();
+    else await checkGuestRequestStatus();
   } catch (err) {
     state.syncStatus = 'offline';
     syncAllUI();
   }
 }
 
+async function applyTimeToEntireActiveSet() {
+  if (!requireEditor('chỉnh thời gian cho cả bộ đề') || state.isBusy) return;
+  const sec = Math.max(5, Math.min(300, parseInt(dom.bulkSetTimeInput.value, 10) || 20));
+  dom.bulkSetTimeInput.value = String(sec);
+
+  setBusyState(true);
+  SoundEngine.click();
+  const activeId = state.activeSetId;
+  const currentQs = await ensureSetQuestionsLoaded(activeId, false);
+  if (currentQs.length === 0) {
+    setBusyState(false);
+    showToast('Bộ đề hiện tại chưa có câu hỏi nào.', 'error');
+    return;
+  }
+
+  const updated = currentQs.map(q => ({ ...q, timeLimit: sec }));
+  const ok = await writeSetQuestionsAndMeta(activeId, updated);
+  setBusyState(false);
+  if (ok) {
+    showToast(`Đã đặt ${sec} giây/câu cho toàn bộ ${updated.length} câu trong "${getActiveMeta().name}"!`, 'success');
+  }
+}
+
 async function togglePinActiveSet() {
-  if (!requireOwner('ghim bộ đề') || state.isBusy) return;
+  if (!requireEditor('ghim bộ đề') || state.isBusy) return;
   setBusyState(true);
   SoundEngine.click();
   const activeId = state.activeSetId;
@@ -793,7 +845,7 @@ async function togglePinActiveSet() {
 }
 
 async function duplicateActiveSet() {
-  if (!requireOwner('nhân bản bộ đề') || state.isBusy) return;
+  if (!requireEditor('nhân bản bộ đề') || state.isBusy) return;
   setBusyState(true);
   SoundEngine.click();
   try {
@@ -826,7 +878,7 @@ async function duplicateActiveSet() {
 }
 
 async function createBlankQuizSet() {
-  if (!requireOwner('tạo bộ đề mới') || state.isBusy) return;
+  if (!requireEditor('tạo bộ đề mới') || state.isBusy) return;
   setBusyState(true);
   resetDeleteGuard();
   SoundEngine.click();
@@ -851,7 +903,7 @@ async function createBlankQuizSet() {
 }
 
 async function renameActiveSet() {
-  if (!requireOwner('đổi tên bộ đề') || state.isBusy) return;
+  if (!requireEditor('đổi tên bộ đề') || state.isBusy) return;
   const nextName = dom.renameSetInput.value.trim();
   if (!nextName) {
     showToast('Nhập tên bộ đề trước khi lưu.', 'error');
@@ -877,7 +929,7 @@ async function renameActiveSet() {
 }
 
 async function deleteCurrentSet() {
-  if (!requireOwner('xóa bộ đề') || state.isBusy) return;
+  if (!requireEditor('xóa bộ đề') || state.isBusy) return;
   const activeMeta = getActiveMeta();
   const targetId = activeMeta.id;
 
@@ -951,7 +1003,7 @@ async function writeSetQuestionsAndMeta(setId, questions) {
 }
 
 async function clearCurrentSetQuestions() {
-  if (!requireOwner('xóa câu hỏi') || state.isBusy) return;
+  if (!requireEditor('xóa câu hỏi') || state.isBusy) return;
   setBusyState(true);
   SoundEngine.click();
   state.editingIndex = null;
@@ -962,7 +1014,7 @@ async function clearCurrentSetQuestions() {
 }
 
 async function deleteQuestionAt(idx) {
-  if (!requireOwner('xóa câu hỏi') || state.isBusy) return;
+  if (!requireEditor('xóa câu hỏi') || state.isBusy) return;
   setBusyState(true);
   SoundEngine.click();
 
@@ -993,7 +1045,7 @@ async function deleteQuestionAt(idx) {
 }
 
 async function undoLastDeletedQuestion() {
-  if (!requireOwner('hoàn tác câu hỏi') || state.isBusy) return;
+  if (!requireEditor('hoàn tác câu hỏi') || state.isBusy) return;
   const snap = state.lastDeletedQuestion;
   if (!snap || Date.now() > snap.expiresAt) {
     state.lastDeletedQuestion = null;
@@ -1023,6 +1075,7 @@ function setBusyState(busy) {
     dom.pinSetBtn,
     dom.duplicateSetBtn,
     dom.deleteCurrentSetBtn,
+    dom.applyTimeToAllBtn,
     dom.drawerClearCurrentSetBtn,
     dom.saveAsNewSetBtn,
     dom.appendImportBtn,
@@ -1190,7 +1243,7 @@ function renderLobby() {
     `;
 
     row.querySelector('[data-action="edit"]').addEventListener('click', () => {
-      if (!requireOwner('sửa câu hỏi')) return;
+      if (!requireEditor('sửa câu hỏi')) return;
       SoundEngine.click();
       openDrawer('form', idx);
     });
@@ -1223,6 +1276,18 @@ function switchView(target) {
   dom.summaryView.classList.toggle('hidden', target !== 'summary');
   if (target === 'lobby') renderLobby();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function getEffectiveQuestionTime(questionTime) {
+  const override = dom.playTimeOverrideSelect?.value || 'default';
+  if (override === 'default') {
+    return { noLimit: false, seconds: questionTime || 20 };
+  }
+  const num = parseInt(override, 10);
+  if (num === 0) {
+    return { noLimit: true, seconds: 0 };
+  }
+  return { noLimit: false, seconds: Math.max(5, num) };
 }
 
 async function startGame(customQuestions = null) {
@@ -1327,9 +1392,13 @@ function renderCurrentQuestion() {
   dom.answersGrid.innerHTML = '';
   dom.answersGrid.appendChild(gridFrag);
 
-  state.currentTimeLimit = qItem.timeLimit || 20;
-  state.timeLeft = state.currentTimeLimit;
+  const timeCfg = getEffectiveQuestionTime(qItem.timeLimit || 20);
+  state.noTimeLimit = timeCfg.noLimit;
+  state.currentTimeLimit = timeCfg.seconds;
+  state.timeLeft = timeCfg.seconds;
   updateTimerDisplay();
+
+  if (state.noTimeLimit) return;
 
   state.timerInterval = setInterval(() => {
     if (state.answeredCurrent) {
@@ -1350,9 +1419,17 @@ function renderCurrentQuestion() {
 }
 
 function updateTimerDisplay() {
+  if (state.noTimeLimit) {
+    dom.timerText.textContent = '∞';
+    if (dom.timerUnitText) dom.timerUnitText.textContent = 'tự do';
+    dom.timerBar.style.width = '100%';
+    dom.timerPill.classList.remove('timer-urgent');
+    return;
+  }
   const sec = Math.ceil(state.timeLeft);
   dom.timerText.textContent = sec;
-  const pct = Math.max(0, Math.min(100, (state.timeLeft / state.currentTimeLimit) * 100));
+  if (dom.timerUnitText) dom.timerUnitText.textContent = 'giây';
+  const pct = Math.max(0, Math.min(100, (state.timeLeft / Math.max(1, state.currentTimeLimit)) * 100));
   dom.timerBar.style.width = `${pct}%`;
   dom.timerPill.classList.toggle('timer-urgent', sec <= 5 && !state.answeredCurrent);
 }
@@ -1367,10 +1444,12 @@ function lockCards(selectedIdx, correctIdx) {
   });
 }
 
-function computePoints(isCorrect, timeLeft, timeLimit, streak) {
+function computePoints(isCorrect, timeLeft, timeLimit, streak, noLimit = false) {
   if (!isCorrect) return 0;
   const base = 1000;
-  const speedBonus = Math.round(500 * Math.max(0, Math.min(1, timeLeft / Math.max(1, timeLimit))));
+  const speedBonus = noLimit
+    ? 250
+    : Math.round(500 * Math.max(0, Math.min(1, timeLeft / Math.max(1, timeLimit))));
   const streakBonus = Math.min(streak, 10) * 100;
   return base + speedBonus + streakBonus;
 }
@@ -1389,7 +1468,7 @@ function handleSelectOption(choiceIdx) {
   if (isCorrect) {
     state.streak += 1;
     state.maxStreak = Math.max(state.maxStreak, state.streak);
-    pointsEarned = computePoints(true, state.timeLeft, state.currentTimeLimit, state.streak);
+    pointsEarned = computePoints(true, state.timeLeft, state.currentTimeLimit, state.streak, state.noTimeLimit);
     state.score += pointsEarned;
     SoundEngine.correct(state.streak);
     showFeedback({ isCorrect: true, timedOut: false, pointsEarned, explanation: qItem.explanation });
@@ -1543,7 +1622,7 @@ function renderSummary() {
 // 8. DRAWER, EXPORT & EVENTS
 // =========================================================================
 async function openDrawer(tab = 'bulk', editIdx = null, suggestNewSet = false) {
-  if (!requireOwner('mở khung nhập/sửa câu hỏi')) return;
+  if (!requireEditor('mở khung nhập/sửa câu hỏi')) return;
   setDrawerTab(tab);
   if (tab === 'bulk') {
     dom.targetSetNameInput.value = suggestNewSet ? `Đề ${state.setsMeta.length + 1}` : '';
@@ -1583,8 +1662,8 @@ function renderDrawerQuestionLists() {
       item.className = 'rounded-xl bg-black/30 border border-white/10 px-3 py-2 flex items-center justify-between gap-2';
       item.innerHTML = `
         <div class="min-w-0 flex-1">
-          <span class="text-[11px] font-extrabold text-[#ff7ab5]">Câu ${idx + 1}:</span>
-          <span class="text-xs text-white truncate inline-block align-bottom max-w-[78%]">${escapeHtml(q.question)}</span>
+          <span class="text-[11px] font-extrabold text-[#ff7ab5]">Câu ${idx + 1} (${q.timeLimit || 20}s):</span>
+          <span class="text-xs text-white truncate inline-block align-bottom max-w-[72%]">${escapeHtml(q.question)}</span>
         </div>
         <div class="flex items-center gap-1 shrink-0">
           <button type="button" data-act="edit" class="px-2 py-1 rounded bg-white/10 hover:bg-[#ffd000] hover:text-[#1e0929] text-[11px] font-bold cursor-pointer">Sửa</button>
@@ -1592,7 +1671,7 @@ function renderDrawerQuestionLists() {
         </div>
       `;
       item.querySelector('[data-act="edit"]').addEventListener('click', () => {
-        if (!requireOwner('sửa câu hỏi')) return;
+        if (!requireEditor('sửa câu hỏi')) return;
         setDrawerTab('form');
         loadQuestionIntoForm(idx);
       });
@@ -1604,7 +1683,7 @@ function renderDrawerQuestionLists() {
   });
 }
 
-function parseQuizInput(raw) {
+function parseQuizInput(raw, fallbackTimeLimit = 20) {
   const text = String(raw || '').trim();
   if (!text) throw new Error('Ô nhập đang trống.');
 
@@ -1623,7 +1702,9 @@ function parseQuizInput(raw) {
         question,
         options,
         correctIndex: Number.isInteger(item.correctIndex) && item.correctIndex >= 0 && item.correctIndex <= 3 ? item.correctIndex : 0,
-        timeLimit: Number.isFinite(Number(item.timeLimit)) ? Math.max(5, Math.min(120, Math.round(Number(item.timeLimit)))) : 20,
+        timeLimit: Number.isFinite(Number(item.timeLimit))
+          ? Math.max(5, Math.min(300, Math.round(Number(item.timeLimit))))
+          : fallbackTimeLimit,
         explanation: String(item.explanation || '').trim()
       };
     });
@@ -1655,7 +1736,14 @@ function parseQuizInput(raw) {
     });
 
     if (question && options.length === 4 && options.every(Boolean)) {
-      result.push({ id: `q-txt-${Date.now()}-${bIdx}`, question, options, correctIndex, timeLimit: 20, explanation });
+      result.push({
+        id: `q-txt-${Date.now()}-${bIdx}`,
+        question,
+        options,
+        correctIndex,
+        timeLimit: fallbackTimeLimit,
+        explanation
+      });
     }
   });
 
@@ -1664,9 +1752,10 @@ function parseQuizInput(raw) {
 }
 
 async function handleSaveAsNewSet() {
-  if (!requireOwner('lưu bộ đề mới') || state.isBusy) return;
+  if (!requireEditor('lưu bộ đề mới') || state.isBusy) return;
   try {
-    const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
+    const defaultTime = Math.max(5, Math.min(300, parseInt(dom.bulkDefaultTimeInput?.value, 10) || 20));
+    const parsed = parseQuizInput(dom.bulkPasteTextarea.value, defaultTime);
     setBusyState(true);
     const name = dom.targetSetNameInput.value.trim() || `Đề ${state.setsMeta.length + 1}`;
     const newId = `set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -1682,7 +1771,7 @@ async function handleSaveAsNewSet() {
     dom.bulkPasteTextarea.value = '';
     dom.targetSetNameInput.value = '';
     SoundEngine.correct(1);
-    showToast(`Đã lưu "${name}" (${parsed.length} câu)!`, 'success');
+    showToast(`Đã lưu "${name}" (${parsed.length} câu, ${defaultTime}s/câu)!`, 'success');
   } catch (err) {
     SoundEngine.wrong();
     showToast(err.message || 'Lỗi dữ liệu.', 'error');
@@ -1692,9 +1781,10 @@ async function handleSaveAsNewSet() {
 }
 
 async function handleAppendIntoTargetSet() {
-  if (!requireOwner('nạp thêm câu hỏi') || state.isBusy) return;
+  if (!requireEditor('nạp thêm câu hỏi') || state.isBusy) return;
   try {
-    const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
+    const defaultTime = Math.max(5, Math.min(300, parseInt(dom.bulkDefaultTimeInput?.value, 10) || 20));
+    const parsed = parseQuizInput(dom.bulkPasteTextarea.value, defaultTime);
     setBusyState(true);
     const customName = dom.targetSetNameInput.value.trim();
     let targetId = state.activeSetId;
@@ -1753,7 +1843,7 @@ function loadQuestionIntoForm(idx) {
 }
 
 async function saveManualQuestion() {
-  if (!requireOwner('lưu câu hỏi') || state.isBusy) return;
+  if (!requireEditor('lưu câu hỏi') || state.isBusy) return;
   const question = dom.qPromptInput.value.trim();
   const options = [dom.qOpt0.value.trim(), dom.qOpt1.value.trim(), dom.qOpt2.value.trim(), dom.qOpt3.value.trim()];
   if (!question || options.some(o => !o)) {
@@ -1769,7 +1859,7 @@ async function saveManualQuestion() {
     question,
     options,
     correctIndex: parseInt(dom.qCorrectSelect.value, 10) || 0,
-    timeLimit: Math.max(5, Math.min(120, parseInt(dom.qTimeInput.value, 10) || 20)),
+    timeLimit: Math.max(5, Math.min(300, parseInt(dom.qTimeInput.value, 10) || 20)),
     explanation: dom.qExplainInput.value.trim()
   };
 
@@ -1794,7 +1884,7 @@ function bindEvents() {
     setBusyState(true);
     await refreshMetaOnly(true);
     if (state.isOwner) await loadAccessRequests();
-    else await checkMyRequestApproval();
+    else await checkGuestRequestStatus();
     setBusyState(false);
     showToast('Đã đồng bộ lại dữ liệu mới nhất!', 'success');
   });
@@ -1802,8 +1892,7 @@ function bindEvents() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && state.view === 'lobby' && !state.isBusy) {
       refreshMetaOnly(false);
-      if (state.isOwner) loadAccessRequests();
-      else checkMyRequestApproval();
+      if (!state.isOwner) checkGuestRequestStatus();
     }
   });
 
@@ -1840,6 +1929,7 @@ function bindEvents() {
     await ensureSetQuestionsLoaded(id, false);
   });
 
+  dom.applyTimeToAllBtn.addEventListener('click', applyTimeToEntireActiveSet);
   dom.pinSetBtn.addEventListener('click', togglePinActiveSet);
   dom.duplicateSetBtn.addEventListener('click', duplicateActiveSet);
   dom.quickNewSetBtn.addEventListener('click', createBlankQuizSet);
@@ -1868,7 +1958,7 @@ function bindEvents() {
   });
 
   dom.renameSetBtn.addEventListener('click', () => {
-    if (!requireOwner('đổi tên bộ đề')) return;
+    if (!requireEditor('đổi tên bộ đề')) return;
     const willShow = dom.renameSetBox.classList.contains('hidden');
     dom.renameSetBox.classList.toggle('hidden', !willShow);
     if (willShow) {
