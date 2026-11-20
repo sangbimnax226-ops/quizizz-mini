@@ -7,6 +7,8 @@ import {
   OWNER_PIN_CODE,
   isOwnerUnlocked,
   setOwnerUnlocked,
+  getSavedRequestId,
+  setSavedRequestId,
   fbGet,
   fbPut,
   fbPost,
@@ -176,6 +178,9 @@ if (pref?.activeSetCache?.id && Array.isArray(pref.activeSetCache.questions)) {
 
 const state = {
   isOwner: isOwnerUnlocked(),
+  approvedGuestMode: false,
+  myRequestId: getSavedRequestId(),
+  myRequestStatus: '', // '' | 'pending' | 'approved' | 'rejected'
   setsMeta: initialMeta,
   activeSetId: initialActiveId,
   setFilterText: '',
@@ -183,7 +188,7 @@ const state = {
   questionsBySetId: initialQuestionsMap,
   loadedSetIds: new Set(Object.keys(initialQuestionsMap)),
   accessRequests: [],
-  lastDeletedQuestion: null, // { setId, question, index, expiresAt }
+  lastDeletedQuestion: null,
   syncStatus: 'loading',
   isBusy: false,
   pendingDeleteSetId: null,
@@ -372,15 +377,19 @@ function shuffleArray(list) {
   return copy;
 }
 
+function canEditContent() {
+  return Boolean(state.isOwner || state.approvedGuestMode);
+}
+
 function requireOwner(actionLabel = 'chỉnh sửa/thêm/xóa bộ đề') {
-  if (state.isOwner) return true;
-  showToast(`Chỉ chủ sở hữu mới được ${actionLabel}. Bạn có thể gửi yêu cầu quyền sửa ở khung bên dưới.`, 'error');
+  if (canEditContent()) return true;
+  showToast(`Bạn chưa có quyền ${actionLabel}. Hãy gửi yêu cầu quyền sửa ở khung bên dưới.`, 'error');
   dom.guestRequestPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   return false;
 }
 
 // =========================================================================
-// 4. OWNER SESSION & ACCESS REQUESTS
+// 4. OWNER SESSION & APPROVAL WORKFLOW (ACCEPT / REJECT / DISMISS)
 // =========================================================================
 function unlockOwnerMode() {
   const pin = dom.ownerPinInput.value.trim();
@@ -391,20 +400,48 @@ function unlockOwnerMode() {
   }
   setOwnerUnlocked(true, true);
   state.isOwner = true;
+  state.approvedGuestMode = false;
   dom.ownerPinInput.value = '';
   SoundEngine.correct(1);
   showToast('Đã mở quyền Chủ sở hữu!', 'success');
   syncRoleUI();
-  if (state.isOwner) loadAccessRequests();
+  loadAccessRequests();
 }
 
 function lockOwnerMode() {
   SoundEngine.click();
   setOwnerUnlocked(false, true);
   state.isOwner = false;
+  state.approvedGuestMode = false;
   resetDeleteGuard();
   syncRoleUI();
   showToast('Đã khóa về chế độ Xem & Chơi (Khách).', 'info');
+}
+
+async function checkMyRequestApproval() {
+  if (state.isOwner || !state.myRequestId) return;
+  try {
+    const req = await fbGet(`${REQUESTS_PATH}/${encodeURIComponent(state.myRequestId)}.json`);
+    if (!req) {
+      state.myRequestId = '';
+      state.myRequestStatus = '';
+      state.approvedGuestMode = false;
+      setSavedRequestId('');
+      syncRoleUI();
+      return;
+    }
+    const prevStatus = state.myRequestStatus;
+    state.myRequestStatus = req.status || 'pending';
+    state.approvedGuestMode = state.myRequestStatus === 'approved';
+    syncRoleUI();
+
+    if (prevStatus !== 'approved' && state.myRequestStatus === 'approved') {
+      SoundEngine.correct(1);
+      showToast('Chủ sở hữu đã CHẤP NHẬN yêu cầu sửa của bạn!', 'success');
+    } else if (prevStatus !== 'rejected' && state.myRequestStatus === 'rejected') {
+      showToast('Chủ sở hữu đã từ chối yêu cầu quyền sửa.', 'error');
+    }
+  } catch (e) {}
 }
 
 async function submitEditRequest() {
@@ -419,7 +456,7 @@ async function submitEditRequest() {
   setBusyState(true);
   try {
     const activeMeta = getActiveMeta();
-    await fbPost(REQUESTS_PATH, {
+    const res = await fbPost(REQUESTS_PATH, {
       requester,
       reason,
       setId: activeMeta.id,
@@ -427,8 +464,14 @@ async function submitEditRequest() {
       status: 'pending',
       createdAt: Date.now()
     });
+    if (res && res.name) {
+      state.myRequestId = res.name;
+      state.myRequestStatus = 'pending';
+      setSavedRequestId(res.name);
+    }
     dom.guestReasonInput.value = '';
     SoundEngine.correct(1);
+    syncRoleUI();
     showToast('Đã gửi yêu cầu quyền sửa tới chủ sở hữu!', 'success');
   } catch (err) {
     showToast('Không gửi được yêu cầu lúc này.', 'error');
@@ -452,13 +495,33 @@ async function loadAccessRequests() {
   } catch (e) {}
 }
 
-async function dismissAccessRequest(reqId) {
-  if (!requireOwner('xử lý yêu cầu') || !reqId) return;
+async function decideAccessRequest(reqId, decision) {
+  if (!state.isOwner || !reqId) return;
   try {
-    await fbDelete(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`);
+    await fbPut(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}/status.json`, decision);
+    state.accessRequests = state.accessRequests.map(r =>
+      r.id === reqId ? { ...r, status: decision } : r
+    );
+    renderOwnerRequests();
+    SoundEngine.click();
+    showToast(
+      decision === 'approved'
+        ? 'Đã CHẤP NHẬN quyền sửa cho người dùng này!'
+        : 'Đã TỪ CHỐI yêu cầu quyền sửa.',
+      decision === 'approved' ? 'success' : 'info'
+    );
+  } catch (e) {
+    showToast('Lỗi khi cập nhật trạng thái yêu cầu.', 'error');
+  }
+}
+
+async function dismissAccessRequest(reqId) {
+  if (!state.isOwner || !reqId) return;
+  try {
+    await fbDelete(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}.json`);
     state.accessRequests = state.accessRequests.filter(r => r.id !== reqId);
     renderOwnerRequests();
-    showToast('Đã xử lý & xóa yêu cầu.', 'info');
+    showToast('Đã xóa yêu cầu khỏi danh sách.', 'info');
   } catch (e) {
     showToast('Lỗi khi xóa yêu cầu.', 'error');
   }
@@ -468,6 +531,14 @@ function renderOwnerRequests() {
   if (!state.isOwner || !dom.ownerRequestsPanel) return;
   dom.ownerRequestsPanel.classList.remove('hidden');
 
+  const pendingCount = state.accessRequests.filter(r => (r.status || 'pending') === 'pending').length;
+  const headerEl = dom.ownerRequestsPanel.querySelector('div');
+  if (headerEl) {
+    headerEl.textContent = pendingCount > 0
+      ? `📬 Yêu cầu quyền sửa từ người dùng (${pendingCount} đang chờ)`
+      : '📬 Yêu cầu quyền sửa từ người dùng';
+  }
+
   if (state.accessRequests.length === 0) {
     dom.ownerRequestsList.innerHTML = `<p class="text-xs text-purple-200/65">Chưa có yêu cầu xin quyền sửa nào.</p>`;
     return;
@@ -475,16 +546,29 @@ function renderOwnerRequests() {
 
   const frag = document.createDocumentFragment();
   state.accessRequests.forEach(req => {
+    const status = req.status || 'pending';
+    const statusText = status === 'approved'
+      ? '✅ Đã chấp nhận'
+      : status === 'rejected'
+        ? '⛔ Đã từ chối'
+        : '⏳ Đang chờ duyệt';
+
     const row = document.createElement('div');
-    row.className = 'rounded-xl bg-black/30 border border-white/10 p-3 flex items-start justify-between gap-3';
+    row.className = 'rounded-xl bg-black/30 border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5';
     row.innerHTML = `
       <div class="min-w-0 flex-1 space-y-0.5">
-        <div class="text-xs font-extrabold text-[#ffd000]">${escapeHtml(req.requester || 'Khách')} • ${escapeHtml(req.setName || 'Bộ đề')}</div>
+        <div class="text-xs font-extrabold text-[#ffd000]">${escapeHtml(req.requester || 'Khách')} • ${escapeHtml(req.setName || 'Bộ đề')} • <span class="text-purple-100">${statusText}</span></div>
         <p class="text-xs text-white leading-relaxed">${escapeHtml(req.reason || '')}</p>
       </div>
-      <button type="button" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-rose-500/30 text-[11px] font-bold shrink-0 cursor-pointer">Đóng</button>
+      <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+        <button type="button" data-act="accept" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#092110] text-[11px] font-extrabold cursor-pointer">Chấp nhận</button>
+        <button type="button" data-act="reject" class="px-2.5 py-1 rounded-lg bg-rose-500/25 hover:bg-rose-500/40 text-rose-200 text-[11px] font-bold cursor-pointer">Từ chối</button>
+        <button type="button" data-act="dismiss" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-bold cursor-pointer">Đóng</button>
+      </div>
     `;
-    row.querySelector('button').addEventListener('click', () => dismissAccessRequest(req.id));
+    row.querySelector('[data-act="accept"]').addEventListener('click', () => decideAccessRequest(req.id, 'approved'));
+    row.querySelector('[data-act="reject"]').addEventListener('click', () => decideAccessRequest(req.id, 'rejected'));
+    row.querySelector('[data-act="dismiss"]').addEventListener('click', () => dismissAccessRequest(req.id));
     frag.appendChild(row);
   });
   dom.ownerRequestsList.innerHTML = '';
@@ -492,6 +576,8 @@ function renderOwnerRequests() {
 }
 
 function syncRoleUI() {
+  const editable = canEditContent();
+
   if (state.isOwner) {
     dom.ownerRoleBadge.textContent = '👑 Chủ sở hữu (Toàn quyền sửa/xóa)';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40';
@@ -500,8 +586,21 @@ function syncRoleUI() {
     dom.ownerLockBtn.classList.remove('hidden');
     dom.guestRequestPanel.classList.add('hidden');
     renderOwnerRequests();
+  } else if (state.approvedGuestMode) {
+    dom.ownerRoleBadge.textContent = '✅ Đã được chủ sở hữu cấp quyền sửa';
+    dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40';
+    dom.ownerPinInput.classList.remove('hidden');
+    dom.ownerUnlockBtn.classList.remove('hidden');
+    dom.ownerLockBtn.classList.add('hidden');
+    dom.guestRequestPanel.classList.add('hidden');
+    dom.ownerRequestsPanel.classList.add('hidden');
   } else {
-    dom.ownerRoleBadge.textContent = '👀 Chế độ Xem & Chơi (Chỉ chủ mới sửa/xóa)';
+    const statusSuffix = state.myRequestStatus === 'pending'
+      ? ' • ⏳ Đang chờ chủ duyệt'
+      : state.myRequestStatus === 'rejected'
+        ? ' • ⛔ Yêu cầu bị từ chối'
+        : '';
+    dom.ownerRoleBadge.textContent = `👀 Chế độ Xem & Chơi${statusSuffix}`;
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-400/35';
     dom.ownerPinInput.classList.remove('hidden');
     dom.ownerUnlockBtn.classList.remove('hidden');
@@ -510,7 +609,7 @@ function syncRoleUI() {
     dom.ownerRequestsPanel.classList.add('hidden');
   }
 
-  const editButtons = [
+  [
     dom.quickNewSetBtn,
     dom.renameSetBtn,
     dom.pinSetBtn,
@@ -520,15 +619,14 @@ function syncRoleUI() {
     dom.saveAsNewSetBtn,
     dom.appendImportBtn,
     dom.saveManualQuestionBtn
-  ];
-  editButtons.forEach(btn => {
+  ].forEach(btn => {
     if (!btn) return;
-    btn.classList.toggle('opacity-50', !state.isOwner);
+    btn.classList.toggle('opacity-50', !editable);
   });
 }
 
 // =========================================================================
-// 5. LAZY SET LOADING & SET ACTIONS (PIN, DUPLICATE, DELETE, RENAME)
+// 5. LAZY SET LOADING & SET ACTIONS
 // =========================================================================
 function resetDeleteGuard() {
   state.pendingDeleteSetId = null;
@@ -665,7 +763,8 @@ async function initCloudMetadataAndActiveSet() {
     saveLightweightPref();
     syncAllUI();
     await ensureSetQuestionsLoaded(state.activeSetId, false);
-    if (state.isOwner) loadAccessRequests();
+    if (state.isOwner) await loadAccessRequests();
+    else await checkMyRequestApproval();
   } catch (err) {
     state.syncStatus = 'offline';
     syncAllUI();
@@ -1695,12 +1794,17 @@ function bindEvents() {
     setBusyState(true);
     await refreshMetaOnly(true);
     if (state.isOwner) await loadAccessRequests();
+    else await checkMyRequestApproval();
     setBusyState(false);
     showToast('Đã đồng bộ lại dữ liệu mới nhất!', 'success');
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && state.view === 'lobby' && !state.isBusy) refreshMetaOnly(false);
+    if (!document.hidden && state.view === 'lobby' && !state.isBusy) {
+      refreshMetaOnly(false);
+      if (state.isOwner) loadAccessRequests();
+      else checkMyRequestApproval();
+    }
   });
 
   dom.soundToggleBtn.addEventListener('click', () => {
