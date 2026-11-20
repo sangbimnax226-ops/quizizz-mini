@@ -188,7 +188,7 @@
               Trắc Nghiệm Tương Tác
             </span>
           </div>
-          <p class="text-xs text-purple-200/70 hidden sm:block">Sẵn sàng nhận mã câu hỏi của bạn</p>
+          <p class="text-xs text-purple-200/70 hidden sm:block">Đồng bộ đề qua Firebase cho mọi người</p>
         </div>
       </button>
 
@@ -234,15 +234,20 @@
           <!-- Status Header -->
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-white/10">
             <div class="space-y-1.5">
-              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-extrabold text-[#ffd000]">
-                <span id="lobbyStatusDot" class="w-2 h-2 rounded-full bg-purple-300"></span>
-                <span id="lobbyStatusBadge">Trạng thái trống • 0 câu hỏi</span>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-extrabold text-[#ffd000]">
+                  <span id="lobbyStatusDot" class="w-2 h-2 rounded-full bg-purple-300"></span>
+                  <span id="lobbyStatusBadge">Đang tải dữ liệu...</span>
+                </div>
+                <span id="cloudSyncBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-bold text-emerald-200">
+                  ☁️ Firebase Realtime
+                </span>
               </div>
               <h1 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
                 Quizizz Trống — Sẵn Sàng Nhập Mã
               </h1>
               <p class="text-sm sm:text-base text-purple-200/80 max-w-2xl">
-                Hệ thống đang hoàn toàn trống (0 câu hỏi mẫu). Dán trực tiếp mã JSON hoặc văn bản câu hỏi của bạn vào để bắt đầu chơi ngay.
+                Dán mã JSON hoặc văn bản câu hỏi vào để đồng bộ lên đám mây — mọi người mở link đều xem được và lần sau mở lại vẫn lưu nguyên.
               </p>
             </div>
 
@@ -272,7 +277,7 @@
                   <span class="font-black text-base sm:text-lg text-white">Dán mã câu hỏi (JSON / Văn bản)</span>
                 </div>
                 <p class="text-xs sm:text-sm text-purple-100/80 leading-relaxed">
-                  Mở khung dán mã trống trơn — dán bộ câu hỏi vào và nạp để chơi ngay lập tức.
+                  Mở khung dán mã trống trơn — dán bộ câu hỏi vào và nạp để lưu chung lên Firebase.
                 </p>
               </div>
             </button>
@@ -513,7 +518,7 @@
         <h2 id="builderTitle" class="text-lg sm:text-xl font-black text-white">
           Nhập &amp; Quản Lý Câu Hỏi
         </h2>
-        <p class="text-xs text-purple-200/75">Ô nhập mặc định trống sạch để bạn dán mã mới bất cứ lúc nào</p>
+        <p class="text-xs text-purple-200/75">Mọi thay đổi được đồng bộ trực tiếp lên Firebase Realtime Database</p>
       </div>
       <button
         id="closeBuilderBtn"
@@ -763,9 +768,11 @@ Giải thích: Lý do...'
   <script>
     /**
      * Quizizz Mini / Trắc Nghiệm Tương Tác
-     * Blank-Slate Edition (0 sample questions, empty localStorage, empty textarea).
+     * Synchronized via Firebase Realtime Database + localStorage fallback.
      */
 
+    const FIREBASE_DB_URL = 'https://quizizz-mini-shared-e3865-default-rtdb.asia-southeast1.firebasedatabase.app';
+    const FIREBASE_SHARED_PATH = '/quizizz_mini/shared_questions.json';
     const STORAGE_KEY = 'quizizz_mini_user_questions_v1';
 
     // =========================================================================
@@ -845,23 +852,38 @@ Giải thích: Lý do...'
     })();
 
     // =========================================================================
-    // 2. APPLICATION STATE (Initialized strictly empty: 0 questions)
+    // 2. STORAGE & FIREBASE REALTIME DATABASE SYNC
     // =========================================================================
-    function loadInitialQuestions() {
+    function sanitizeQuestions(rawList) {
+      if (!Array.isArray(rawList)) return [];
+      return rawList
+        .filter(q => q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4)
+        .map((q, idx) => ({
+          id: q.id || `q-${idx}-${Date.now()}`,
+          question: String(q.question).trim(),
+          options: q.options.map(o => String(o || '').trim()),
+          correctIndex: Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex <= 3
+            ? q.correctIndex
+            : 0,
+          timeLimit: Number.isFinite(Number(q.timeLimit))
+            ? Math.max(5, Math.min(120, Math.round(Number(q.timeLimit))))
+            : 20,
+          explanation: String(q.explanation || '').trim()
+        }))
+        .filter(q => q.question && q.options.every(Boolean));
+    }
+
+    function loadLocalQuestions() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed.filter(
-          q => q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4
-        );
+        return sanitizeQuestions(JSON.parse(raw));
       } catch (e) {
         return [];
       }
     }
 
-    function persistQuestions(list) {
+    function saveLocalQuestions(list) {
       try {
         if (!list || list.length === 0) {
           localStorage.removeItem(STORAGE_KEY);
@@ -873,8 +895,40 @@ Giải thích: Lý do...'
       }
     }
 
+    async function fetchQuestionsFromFirebase() {
+      const endpoint = `${FIREBASE_DB_URL}${FIREBASE_SHARED_PATH}`;
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (!data) return [];
+      if (Array.isArray(data)) {
+        return sanitizeQuestions(data);
+      }
+      if (typeof data === 'object') {
+        return sanitizeQuestions(Object.values(data));
+      }
+      return [];
+    }
+
+    async function pushQuestionsToFirebase(list) {
+      const cleanList = sanitizeQuestions(list);
+      const endpoint = `${FIREBASE_DB_URL}${FIREBASE_SHARED_PATH}`;
+      const res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cleanList)
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      return cleanList;
+    }
+
     const state = {
-      questions: loadInitialQuestions(), // Starts at [] when localStorage is empty
+      questions: loadLocalQuestions(),
+      syncStatus: 'loading', // 'loading' | 'synced' | 'offline' | 'error'
       view: 'lobby', // 'lobby' | 'game' | 'summary'
       // Gameplay
       deck: [],
@@ -889,8 +943,46 @@ Giải thích: Lý do...'
       history: [],
       // Drawer / Editor
       drawerTab: 'bulk', // 'bulk' | 'form'
-      editingIndex: null // null = adding new question, number = editing existing question
+      editingIndex: null
     };
+
+    async function syncQuestions(nextList = null) {
+      if (Array.isArray(nextList)) {
+        state.questions = sanitizeQuestions(nextList);
+        saveLocalQuestions(state.questions);
+        syncAllUI();
+
+        try {
+          await pushQuestionsToFirebase(state.questions);
+          state.syncStatus = 'synced';
+          updateSyncBadge();
+          return true;
+        } catch (err) {
+          console.warn('Lỗi đẩy dữ liệu lên Firebase:', err);
+          state.syncStatus = 'offline';
+          updateSyncBadge();
+          showToast('Đã lưu tạm trên máy, chưa đồng bộ được lên Firebase.', 'error');
+          return false;
+        }
+      }
+
+      state.syncStatus = 'loading';
+      updateSyncBadge();
+      try {
+        const cloudQuestions = await fetchQuestionsFromFirebase();
+        state.questions = cloudQuestions;
+        saveLocalQuestions(cloudQuestions);
+        state.syncStatus = 'synced';
+        syncAllUI();
+        return true;
+      } catch (err) {
+        console.warn('Không tải được từ Firebase, dùng bản lưu cục bộ:', err);
+        state.questions = loadLocalQuestions();
+        state.syncStatus = 'offline';
+        syncAllUI();
+        return false;
+      }
+    }
 
     // =========================================================================
     // 3. DOM REFERENCES
@@ -912,6 +1004,7 @@ Giải thích: Lý do...'
       // Lobby
       lobbyStatusDot: document.getElementById('lobbyStatusDot'),
       lobbyStatusBadge: document.getElementById('lobbyStatusBadge'),
+      cloudSyncBadge: document.getElementById('cloudSyncBadge'),
       clearAllBtn: document.getElementById('clearAllBtn'),
       lobbyPasteCodeBtn: document.getElementById('lobbyPasteCodeBtn'),
       lobbyManualCreateBtn: document.getElementById('lobbyManualCreateBtn'),
@@ -1042,15 +1135,30 @@ Giải thích: Lý do...'
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    function updateSyncBadge() {
+      if (!dom.cloudSyncBadge) return;
+      if (state.syncStatus === 'loading') {
+        dom.cloudSyncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/35 text-xs font-bold text-amber-200';
+        dom.cloudSyncBadge.textContent = '⏳ Đang đồng bộ Firebase...';
+      } else if (state.syncStatus === 'synced') {
+        dom.cloudSyncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-bold text-emerald-200';
+        dom.cloudSyncBadge.textContent = '☁️ Đã đồng bộ Firebase';
+      } else {
+        dom.cloudSyncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/35 text-xs font-bold text-rose-200';
+        dom.cloudSyncBadge.textContent = '📴 Đang dùng bản lưu cục bộ';
+      }
+    }
+
     function syncAllUI() {
       const count = state.questions.length;
       const hasQuestions = count > 0;
 
-      // Top header pill
       dom.headerCountPill.textContent = count;
 
-      // Lobby status badge
-      if (hasQuestions) {
+      if (state.syncStatus === 'loading' && !hasQuestions) {
+        dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-pulse';
+        dom.lobbyStatusBadge.textContent = 'Đang tải đề từ Firebase...';
+      } else if (hasQuestions) {
         dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
         dom.lobbyStatusBadge.textContent = `Sẵn sàng chơi • ${count} câu hỏi`;
       } else {
@@ -1058,13 +1166,13 @@ Giải thích: Lý do...'
         dom.lobbyStatusBadge.textContent = 'Trạng thái trống • 0 câu hỏi';
       }
 
-      // Start button enable/disable
+      updateSyncBadge();
+
       dom.startGameBtn.disabled = !hasQuestions;
       dom.startGameBtnLabel.textContent = hasQuestions
         ? `Bắt đầu chơi (${count} câu)`
         : 'Bắt đầu chơi (0 câu)';
 
-      // Drawer counts & play button
       dom.bulkLoadedCount.textContent = count;
       dom.formLoadedCount.textContent = count;
       dom.drawerTotalCount.textContent = count;
@@ -1143,31 +1251,29 @@ Giải thích: Lý do...'
       dom.lobbyQuestionsContainer.appendChild(listEl);
     }
 
-    function clearAllQuestions(openPasteAfter = false) {
+    async function clearAllQuestions(openPasteAfter = false) {
       SoundEngine.click();
-      state.questions = [];
       state.editingIndex = null;
-      persistQuestions([]);
       resetManualFormFields();
       dom.bulkPasteTextarea.value = '';
-      syncAllUI();
-      showToast('Đã xóa toàn bộ câu hỏi về trạng thái trống (0 câu).', 'info');
+      await syncQuestions([]);
+      showToast('Đã xóa toàn bộ câu hỏi và cập nhật lên Firebase.', 'info');
       if (openPasteAfter) {
         openDrawer('bulk');
       }
     }
 
-    function deleteQuestionAt(idx) {
+    async function deleteQuestionAt(idx) {
       SoundEngine.click();
-      state.questions.splice(idx, 1);
+      const updated = state.questions.slice();
+      updated.splice(idx, 1);
       if (state.editingIndex === idx) {
         state.editingIndex = null;
         resetManualFormFields();
       } else if (state.editingIndex !== null && state.editingIndex > idx) {
         state.editingIndex -= 1;
       }
-      persistQuestions(state.questions);
-      syncAllUI();
+      await syncQuestions(updated);
       showToast(`Đã xóa Câu #${idx + 1}.`, 'info');
     }
 
@@ -1533,7 +1639,6 @@ Giải thích: Lý do...'
       setDrawerTab(tab);
 
       if (tab === 'bulk') {
-        // Keep textarea clean/blank unless user already typed something unsubmitted
         setTimeout(() => dom.bulkPasteTextarea.focus(), 120);
       } else if (tab === 'form') {
         if (editIdx !== null && state.questions[editIdx]) {
@@ -1617,7 +1722,6 @@ Giải thích: Lý do...'
         throw new Error('Ô nhập đang trống. Hãy dán mã câu hỏi vào trước!');
       }
 
-      // 1. JSON format
       if (text.startsWith('[') || text.startsWith('{')) {
         let data;
         try {
@@ -1654,7 +1758,6 @@ Giải thích: Lý do...'
         });
       }
 
-      // 2. Plain text format
       const blocks = text.split(/\n\s*\n+/);
       const result = [];
 
@@ -1713,23 +1816,20 @@ Giải thích: Lý do...'
       return result;
     }
 
-    function handleImportCode(mode = 'replace') {
+    async function handleImportCode(mode = 'replace') {
       try {
         const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
-        if (mode === 'replace') {
-          state.questions = parsed;
-        } else {
-          state.questions = state.questions.concat(parsed);
-        }
-        persistQuestions(state.questions);
+        const merged = mode === 'replace' ? parsed : state.questions.concat(parsed);
+        const ok = await syncQuestions(merged);
         SoundEngine.correct(1);
-        syncAllUI();
-        showToast(
-          mode === 'replace'
-            ? `Đã nạp ${parsed.length} câu hỏi mới!`
-            : `Đã thêm ${parsed.length} câu hỏi (Tổng: ${state.questions.length} câu).`,
-          'success'
-        );
+        if (ok) {
+          showToast(
+            mode === 'replace'
+              ? `Đã nạp và đồng bộ ${parsed.length} câu hỏi lên Firebase!`
+              : `Đã thêm ${parsed.length} câu hỏi lên Firebase (Tổng: ${state.questions.length} câu).`,
+            'success'
+          );
+        }
       } catch (err) {
         SoundEngine.wrong();
         showToast(err.message || 'Lỗi định dạng dữ liệu.', 'error');
@@ -1765,7 +1865,7 @@ Giải thích: Lý do...'
       dom.qExplainInput.value = q.explanation || '';
     }
 
-    function saveManualQuestion() {
+    async function saveManualQuestion() {
       const question = dom.qPromptInput.value.trim();
       const options = [
         dom.qOpt0.value.trim(),
@@ -1796,25 +1896,33 @@ Giải thích: Lý do...'
         explanation
       };
 
-      if (state.editingIndex !== null) {
-        state.questions[state.editingIndex] = record;
-        showToast(`Đã cập nhật Câu #${state.editingIndex + 1}!`, 'success');
+      const updated = state.questions.slice();
+      const wasEditing = state.editingIndex !== null;
+      const editIdx = state.editingIndex;
+
+      if (wasEditing) {
+        updated[editIdx] = record;
       } else {
-        state.questions.push(record);
-        showToast(`Đã thêm Câu #${state.questions.length}!`, 'success');
+        updated.push(record);
       }
 
-      persistQuestions(state.questions);
-      SoundEngine.correct(1);
       resetManualFormFields();
-      syncAllUI();
+      const ok = await syncQuestions(updated);
+      SoundEngine.correct(1);
+      if (ok) {
+        showToast(
+          wasEditing
+            ? `Đã cập nhật Câu #${editIdx + 1} lên Firebase!`
+            : `Đã thêm Câu #${updated.length} lên Firebase!`,
+          'success'
+        );
+      }
     }
 
     // =========================================================================
     // 9. EVENT LISTENERS & KEYBOARD SHORTCUTS
     // =========================================================================
     function bindEvents() {
-      // Sound toggle
       dom.soundToggleBtn.addEventListener('click', () => {
         const next = !SoundEngine.isEnabled();
         SoundEngine.setEnabled(next);
@@ -1825,7 +1933,6 @@ Giải thích: Lý do...'
         showToast(next ? 'Đã bật âm thanh' : 'Đã tắt âm thanh', 'info');
       });
 
-      // Navigation
       dom.homeLogoBtn.addEventListener('click', () => {
         SoundEngine.click();
         switchView('lobby');
@@ -1835,7 +1942,6 @@ Giải thích: Lý do...'
         switchView('lobby');
       });
 
-      // Primary Lobby Buttons
       dom.lobbyPasteCodeBtn.addEventListener('click', () => {
         SoundEngine.click();
         openDrawer('bulk');
@@ -1851,7 +1957,6 @@ Giải thích: Lý do...'
       dom.clearAllBtn.addEventListener('click', () => clearAllQuestions(false));
       dom.drawerClearAllBtn.addEventListener('click', () => clearAllQuestions(false));
 
-      // Start & Replay
       dom.startGameBtn.addEventListener('click', () => {
         SoundEngine.click();
         startGame();
@@ -1866,15 +1971,12 @@ Giải thích: Lý do...'
         startGame();
       });
 
-      // Summary "Nạp bộ mã khác" -> clears old questions & opens empty paste box immediately
       dom.loadNewCodeBtn.addEventListener('click', () => {
         clearAllQuestions(true);
       });
 
-      // Next Question
       dom.nextQuestionBtn.addEventListener('click', nextQuestion);
 
-      // Drawer Controls
       dom.closeBuilderBtn.addEventListener('click', () => {
         SoundEngine.click();
         closeDrawer();
@@ -1889,7 +1991,6 @@ Giải thích: Lý do...'
         setDrawerTab('form');
       });
 
-      // Bulk Paste Actions
       dom.clearTextareaBtn.addEventListener('click', () => {
         SoundEngine.click();
         dom.bulkPasteTextarea.value = '';
@@ -1898,7 +1999,6 @@ Giải thích: Lý do...'
       dom.replaceImportBtn.addEventListener('click', () => handleImportCode('replace'));
       dom.appendImportBtn.addEventListener('click', () => handleImportCode('append'));
 
-      // Manual Form Actions
       dom.resetFormFieldsBtn.addEventListener('click', () => {
         SoundEngine.click();
         resetManualFormFields();
@@ -1906,7 +2006,6 @@ Giải thích: Lý do...'
       });
       dom.saveManualQuestionBtn.addEventListener('click', saveManualQuestion);
 
-      // Keyboard shortcuts (1-4 / A-D to answer; Enter / Space for next; Esc to close drawer)
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !dom.builderDrawer.classList.contains('translate-x-full')) {
           closeDrawer();
@@ -1930,13 +2029,13 @@ Giải thích: Lý do...'
     }
 
     // =========================================================================
-    // 10. INIT (Strictly blank slate: 0 sample questions)
+    // 10. INIT
     // =========================================================================
     window.addEventListener('DOMContentLoaded', () => {
       bindEvents();
       syncAllUI();
+      syncQuestions();
     });
   </script>
 </body>
 </html>
-```
