@@ -188,7 +188,7 @@
               Trắc Nghiệm Tương Tác
             </span>
           </div>
-          <p class="text-xs text-purple-200/70 hidden sm:block">Đồng bộ đề qua Firebase cho mọi người</p>
+          <p class="text-xs text-purple-200/70 hidden sm:block">Lưu tách riêng từng bộ đề trên Firebase</p>
         </div>
       </button>
 
@@ -223,7 +223,7 @@
   <!-- Main Content -->
   <main class="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
-    <!-- ==================== VIEW 1: LOBBY / BLANK SLATE HOME ==================== -->
+    <!-- ==================== VIEW 1: LOBBY / MULTI-SET HOME ==================== -->
     <section id="lobbyView" class="animate-pop-in space-y-6">
       <div class="glass-panel rounded-3xl p-5 sm:p-8 relative overflow-hidden">
         <!-- Ambient Neon Glows -->
@@ -243,25 +243,77 @@
                   ☁️ Firebase Realtime
                 </span>
               </div>
-              <h1 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
-                Quizizz Trống — Sẵn Sàng Nhập Mã
+              <h1 id="activeSetTitleDisplay" class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
+                Chọn hoặc Tạo Bộ Đề
               </h1>
               <p class="text-sm sm:text-base text-purple-200/80 max-w-2xl">
-                Dán mã JSON hoặc văn bản câu hỏi vào để đồng bộ lên đám mây — mọi người mở link đều xem được và lần sau mở lại vẫn lưu nguyên.
+                Mỗi bộ đề được lưu tách riêng trên Firebase. Nạp đề mới vào tên đề khác để giữ nguyên toàn bộ đề cũ.
               </p>
             </div>
 
-            <!-- Clear All Questions Button -->
+            <!-- Delete Current Set Button -->
             <button
-              id="clearAllBtn"
+              id="deleteCurrentSetBtn"
               type="button"
               class="self-start md:self-center px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 border border-rose-400/30 transition cursor-pointer shrink-0"
             >
-              🗑️ Xóa toàn bộ câu hỏi
+              🗑️ Xóa bộ đề hiện tại
             </button>
           </div>
 
-          <!-- Two Primary Input Action Cards + Start Game Button -->
+          <!-- Quiz Set Switcher & Quick Create/Rename Bar -->
+          <div class="rounded-2xl bg-black/25 border border-white/12 p-4 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
+                🗂️ Bộ đề đang chọn (<span id="totalSetsCount">0</span> bộ đề)
+              </span>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  id="quickNewSetBtn"
+                  type="button"
+                  class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-[#ffd000] hover:bg-[#ffe047] text-[#1e0929] transition cursor-pointer"
+                >
+                  + Tạo bộ đề mới
+                </button>
+                <button
+                  id="renameSetBtn"
+                  type="button"
+                  class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/15 text-purple-100 transition cursor-pointer"
+                >
+                  ✏️ Đổi tên đề
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+              <div class="sm:col-span-7">
+                <select
+                  id="quizSetSelect"
+                  class="w-full rounded-xl bg-[#1e0929] border border-white/20 focus:border-[#ff2a85] px-3.5 py-2.5 text-sm font-bold text-white outline-none cursor-pointer"
+                >
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+
+              <div id="renameSetBox" class="sm:col-span-5 hidden flex items-center gap-2">
+                <input
+                  id="renameSetInput"
+                  type="text"
+                  placeholder="Tên bộ đề mới..."
+                  class="flex-1 min-w-0 rounded-xl bg-black/45 border border-[#ffd000]/60 px-3 py-2 text-xs sm:text-sm text-white outline-none"
+                />
+                <button
+                  id="confirmRenameSetBtn"
+                  type="button"
+                  class="px-3 py-2 rounded-xl text-xs font-extrabold bg-emerald-500 hover:bg-emerald-400 text-[#0b2412] transition cursor-pointer shrink-0"
+                >
+                  Lưu
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Two Primary Input Action Cards -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Action 1: Paste Code (JSON / Text) -->
             <button
@@ -277,7 +329,7 @@
                   <span class="font-black text-base sm:text-lg text-white">Dán mã câu hỏi (JSON / Văn bản)</span>
                 </div>
                 <p class="text-xs sm:text-sm text-purple-100/80 leading-relaxed">
-                  Mở khung dán mã trống trơn — dán bộ câu hỏi vào và nạp để lưu chung lên Firebase.
+                  Đẩy vào một bộ đề mới (giữ nguyên đề cũ) hoặc nạp vào bộ đề đang chọn.
                 </p>
               </div>
             </button>
@@ -294,7 +346,7 @@
               <div class="space-y-1">
                 <span class="font-black text-base sm:text-lg text-white block">Tạo câu hỏi thủ công</span>
                 <p class="text-xs sm:text-sm text-purple-100/80 leading-relaxed">
-                  Tự nhập từng câu hỏi, 4 lựa chọn A/B/C/D, chọn đáp án đúng và thời gian trả lời.
+                  Tự nhập từng câu hỏi vào bộ đề hiện tại, chọn đáp án đúng và thời gian trả lời.
                 </p>
               </div>
             </button>
@@ -328,12 +380,12 @@
         </div>
       </div>
 
-      <!-- Loaded Questions Preview Box (Empty State vs Populated List) -->
+      <!-- Loaded Questions Preview Box -->
       <div class="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
         <div class="flex items-center justify-between gap-2">
           <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
             <span>📚</span>
-            <span>Danh sách câu hỏi đã nạp</span>
+            <span>Danh sách câu hỏi của bộ đề hiện tại</span>
           </h2>
           <span id="lobbyListSummary" class="text-xs sm:text-sm font-bold text-[#ffd000]">0 câu hỏi</span>
         </div>
@@ -472,7 +524,7 @@
               type="button"
               class="px-5 py-3 rounded-2xl font-extrabold text-sm sm:text-base bg-[#ffd000] hover:bg-[#ffe047] text-[#1e0929] shadow-lg transition cursor-pointer"
             >
-              📋 Nạp bộ mã khác
+              📋 Đẩy bộ đề mới
             </button>
             <button
               id="backToLobbyBtn"
@@ -516,9 +568,9 @@
     <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#2e0f3d]">
       <div>
         <h2 id="builderTitle" class="text-lg sm:text-xl font-black text-white">
-          Nhập &amp; Quản Lý Câu Hỏi
+          Nhập &amp; Quản Lý Bộ Đề
         </h2>
-        <p class="text-xs text-purple-200/75">Mọi thay đổi được đồng bộ trực tiếp lên Firebase Realtime Database</p>
+        <p class="text-xs text-purple-200/75">Đẩy sang bộ đề mới để giữ nguyên các đề cũ trên Firebase</p>
       </div>
       <button
         id="closeBuilderBtn"
@@ -550,21 +602,34 @@
       </div>
 
       <button
-        id="drawerClearAllBtn"
+        id="drawerClearCurrentSetBtn"
         type="button"
         class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 transition cursor-pointer"
       >
-        🗑️ Xóa hết câu hỏi
+        🗑️ Xóa câu hỏi đề này
       </button>
     </div>
 
     <!-- Drawer Scrollable Body -->
     <div class="flex-1 overflow-y-auto p-5 space-y-5">
 
-      <!-- TAB 1: BLANK PASTE AREA (Default when clicking "Dán mã") -->
+      <!-- TAB 1: BLANK PASTE AREA -->
       <div id="bulkModePanel" class="space-y-4">
         <div class="rounded-2xl bg-[#2e0f3d]/90 border border-white/12 p-4 space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
+          <!-- Target Set Name Input (New or Existing) -->
+          <div class="space-y-1.5">
+            <label for="targetSetNameInput" class="block text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
+              Tên bộ đề đích (nhập tên mới để tạo đề riêng, giữ nguyên đề cũ)
+            </label>
+            <input
+              id="targetSetNameInput"
+              type="text"
+              placeholder="Ví dụ: Đề 2 - Toán hoặc để trống để dùng bộ đề đang chọn..."
+              class="w-full rounded-xl bg-black/45 border border-white/15 focus:border-[#ffd000] px-3.5 py-2 text-xs sm:text-sm font-bold text-white placeholder-purple-300/45 outline-none"
+            />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
             <label for="bulkPasteTextarea" class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
               Dán mã câu hỏi vào ô trống bên dưới
             </label>
@@ -579,7 +644,7 @@
 
           <textarea
             id="bulkPasteTextarea"
-            rows="12"
+            rows="11"
             class="w-full rounded-xl bg-black/45 border border-white/15 focus:border-[#ff2a85] focus:ring-2 focus:ring-[#ff2a85]/30 px-3.5 py-3 text-xs sm:text-[13px] font-mono text-white placeholder-purple-300/45 outline-none leading-relaxed"
             placeholder='Dán mảng JSON tại đây, ví dụ:
 [
@@ -603,30 +668,30 @@ Giải thích: Lý do...'
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
             <button
-              id="replaceImportBtn"
+              id="saveAsNewSetBtn"
               type="button"
               class="py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-[#ff2a85] hover:bg-[#ff4294] text-white shadow-lg shadow-[#ff2a85]/25 transition cursor-pointer"
             >
-              ⚡ Nạp dữ liệu (Thay thế toàn bộ)
+              💾 Lưu thành bộ đề riêng (Giữ đề cũ)
             </button>
             <button
               id="appendImportBtn"
               type="button"
               class="py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-white/10 hover:bg-white/15 border border-white/15 text-white transition cursor-pointer"
             >
-              ➕ Nạp thêm vào danh sách hiện có
+              ➕ Nạp thêm vào bộ đề đích
             </button>
           </div>
         </div>
 
-        <!-- Compact List of Loaded Questions inside Drawer -->
+        <!-- Compact List of Loaded Questions in Active Set -->
         <div class="rounded-2xl bg-[#2e0f3d]/70 border border-white/10 p-4 space-y-2.5">
           <div class="flex items-center justify-between">
             <span class="text-xs font-extrabold uppercase tracking-wider text-purple-200/80">
-              Câu hỏi đã nạp (<span id="bulkLoadedCount">0</span>)
+              Câu hỏi trong bộ đề đang chọn (<span id="bulkLoadedCount">0</span>)
             </span>
           </div>
-          <div id="bulkLoadedList" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <div id="bulkLoadedList" class="space-y-2 max-h-52 overflow-y-auto pr-1">
             <!-- Populated dynamically -->
           </div>
         </div>
@@ -637,7 +702,7 @@ Giải thích: Lý do...'
         <div class="rounded-2xl bg-[#2e0f3d]/90 border border-white/12 p-4 sm:p-5 space-y-4">
           <div class="flex items-center justify-between gap-2">
             <span id="formHeaderTitle" class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
-              Thêm câu hỏi mới
+              Thêm câu hỏi vào bộ đề hiện tại
             </span>
             <button
               id="resetFormFieldsBtn"
@@ -733,7 +798,7 @@ Giải thích: Lý do...'
             type="button"
             class="w-full py-3 rounded-xl font-extrabold text-sm bg-gradient-to-r from-[#ff2a85] to-[#8b1ec4] hover:brightness-110 text-white shadow-md transition cursor-pointer"
           >
-            💾 Lưu câu hỏi vào danh sách
+            💾 Lưu câu hỏi vào bộ đề hiện tại
           </button>
         </div>
 
@@ -752,7 +817,7 @@ Giải thích: Lý do...'
     <!-- Drawer Footer -->
     <div class="px-5 py-3.5 border-t border-white/10 bg-[#2e0f3d] flex items-center justify-between gap-3">
       <span class="text-xs text-purple-200/85 font-semibold">
-        Hiện có <strong id="drawerTotalCount" class="text-[#ffd000]">0</strong> câu hỏi
+        Đề hiện tại có <strong id="drawerTotalCount" class="text-[#ffd000]">0</strong> câu hỏi
       </span>
       <button
         id="playFromDrawerBtn"
@@ -768,15 +833,18 @@ Giải thích: Lý do...'
   <script>
     /**
      * Quizizz Mini / Trắc Nghiệm Tương Tác
-     * Synchronized via Firebase Realtime Database + localStorage fallback.
+     * Multi-Set Firebase Realtime Database Edition:
+     * Stores separate quiz sets under /quizizz_mini/quiz_sets.json
+     * while migrating legacy /quizizz_mini/shared_questions.json if present.
      */
 
     const FIREBASE_DB_URL = 'https://quizizz-mini-shared-e3865-default-rtdb.asia-southeast1.firebasedatabase.app';
-    const FIREBASE_SHARED_PATH = '/quizizz_mini/shared_questions.json';
-    const STORAGE_KEY = 'quizizz_mini_user_questions_v1';
+    const FIREBASE_SETS_PATH = '/quizizz_mini/quiz_sets.json';
+    const FIREBASE_LEGACY_PATH = '/quizizz_mini/shared_questions.json';
+    const LOCAL_CACHE_KEY = 'quizizz_mini_sets_cache_v1';
 
     // =========================================================================
-    // 1. WEB AUDIO API SOUND ENGINE (Clock tick, Correct ding, Wrong buzz, Victory)
+    // 1. WEB AUDIO API SOUND ENGINE
     // =========================================================================
     const SoundEngine = (() => {
       let audioCtx = null;
@@ -852,7 +920,7 @@ Giải thích: Lý do...'
     })();
 
     // =========================================================================
-    // 2. STORAGE & FIREBASE REALTIME DATABASE SYNC
+    // 2. MULTI-SET STORAGE & FIREBASE SYNC
     // =========================================================================
     function sanitizeQuestions(rawList) {
       if (!Array.isArray(rawList)) return [];
@@ -873,62 +941,74 @@ Giải thích: Lý do...'
         .filter(q => q.question && q.options.every(Boolean));
     }
 
-    function loadLocalQuestions() {
+    function createDefaultSet(name = 'Đề 1') {
+      return {
+        id: `set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: name.trim() || 'Đề 1',
+        questions: [],
+        updatedAt: Date.now()
+      };
+    }
+
+    function normalizeSetsPayload(rawSets) {
+      if (!Array.isArray(rawSets)) return [];
+      return rawSets
+        .filter(s => s && typeof s === 'object')
+        .map((s, idx) => ({
+          id: String(s.id || `set-${idx}-${Date.now()}`),
+          name: String(s.name || `Đề ${idx + 1}`).trim() || `Đề ${idx + 1}`,
+          questions: sanitizeQuestions(s.questions),
+          updatedAt: Number(s.updatedAt) || Date.now()
+        }));
+    }
+
+    function loadLocalCache() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return [];
-        return sanitizeQuestions(JSON.parse(raw));
+        const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+        if (!raw) return { sets: [], activeSetId: '' };
+        const parsed = JSON.parse(raw);
+        const sets = normalizeSetsPayload(parsed.sets);
+        const activeSetId = sets.some(s => s.id === parsed.activeSetId)
+          ? parsed.activeSetId
+          : (sets[0]?.id || '');
+        return { sets, activeSetId };
       } catch (e) {
-        return [];
+        return { sets: [], activeSetId: '' };
       }
     }
 
-    function saveLocalQuestions(list) {
+    function saveLocalCache(sets, activeSetId) {
       try {
-        if (!list || list.length === 0) {
-          localStorage.removeItem(STORAGE_KEY);
-        } else {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-        }
+        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ sets, activeSetId }));
       } catch (e) {
         // Ignore storage quota errors
       }
     }
 
-    async function fetchQuestionsFromFirebase() {
-      const endpoint = `${FIREBASE_DB_URL}${FIREBASE_SHARED_PATH}`;
-      const res = await fetch(endpoint, { cache: 'no-store' });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      if (!data) return [];
-      if (Array.isArray(data)) {
-        return sanitizeQuestions(data);
-      }
-      if (typeof data === 'object') {
-        return sanitizeQuestions(Object.values(data));
-      }
-      return [];
+    async function fetchJsonNode(path) {
+      const res = await fetch(`${FIREBASE_DB_URL}${path}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
     }
 
-    async function pushQuestionsToFirebase(list) {
-      const cleanList = sanitizeQuestions(list);
-      const endpoint = `${FIREBASE_DB_URL}${FIREBASE_SHARED_PATH}`;
-      const res = await fetch(endpoint, {
+    async function pushSetsToFirebase(sets) {
+      const cleanSets = normalizeSetsPayload(sets);
+      const res = await fetch(`${FIREBASE_DB_URL}${FIREBASE_SETS_PATH}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanList)
+        body: JSON.stringify(cleanSets)
       });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      return cleanList;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return cleanSets;
     }
 
+    const cached = loadLocalCache();
+    const initialSets = cached.sets.length > 0 ? cached.sets : [createDefaultSet('Đề 1')];
+
     const state = {
-      questions: loadLocalQuestions(),
-      syncStatus: 'loading', // 'loading' | 'synced' | 'offline' | 'error'
+      sets: initialSets,
+      activeSetId: cached.activeSetId || initialSets[0].id,
+      syncStatus: 'loading', // 'loading' | 'synced' | 'offline'
       view: 'lobby', // 'lobby' | 'game' | 'summary'
       // Gameplay
       deck: [],
@@ -946,38 +1026,87 @@ Giải thích: Lý do...'
       editingIndex: null
     };
 
-    async function syncQuestions(nextList = null) {
-      if (Array.isArray(nextList)) {
-        state.questions = sanitizeQuestions(nextList);
-        saveLocalQuestions(state.questions);
-        syncAllUI();
-
-        try {
-          await pushQuestionsToFirebase(state.questions);
-          state.syncStatus = 'synced';
-          updateSyncBadge();
-          return true;
-        } catch (err) {
-          console.warn('Lỗi đẩy dữ liệu lên Firebase:', err);
-          state.syncStatus = 'offline';
-          updateSyncBadge();
-          showToast('Đã lưu tạm trên máy, chưa đồng bộ được lên Firebase.', 'error');
-          return false;
+    function getActiveSet() {
+      let found = state.sets.find(s => s.id === state.activeSetId);
+      if (!found) {
+        if (state.sets.length === 0) {
+          found = createDefaultSet('Đề 1');
+          state.sets.push(found);
+        } else {
+          found = state.sets[0];
         }
+        state.activeSetId = found.id;
+      }
+      return found;
+    }
+
+    function getActiveQuestions() {
+      return getActiveSet().questions;
+    }
+
+    async function persistAllSets(nextSets = null, nextActiveId = null) {
+      if (Array.isArray(nextSets)) {
+        state.sets = nextSets.length > 0 ? normalizeSetsPayload(nextSets) : [createDefaultSet('Đề 1')];
+      }
+      if (nextActiveId && state.sets.some(s => s.id === nextActiveId)) {
+        state.activeSetId = nextActiveId;
+      } else if (!state.sets.some(s => s.id === state.activeSetId)) {
+        state.activeSetId = state.sets[0].id;
       }
 
+      saveLocalCache(state.sets, state.activeSetId);
+      syncAllUI();
+
+      try {
+        await pushSetsToFirebase(state.sets);
+        state.syncStatus = 'synced';
+        updateSyncBadge();
+        return true;
+      } catch (err) {
+        console.warn('Lỗi đẩy bộ đề lên Firebase:', err);
+        state.syncStatus = 'offline';
+        updateSyncBadge();
+        showToast('Đã lưu tạm trên máy, chưa đồng bộ được lên Firebase.', 'error');
+        return false;
+      }
+    }
+
+    async function loadSetsFromCloud() {
       state.syncStatus = 'loading';
       updateSyncBadge();
       try {
-        const cloudQuestions = await fetchQuestionsFromFirebase();
-        state.questions = cloudQuestions;
-        saveLocalQuestions(cloudQuestions);
+        const cloudRaw = await fetchJsonNode(FIREBASE_SETS_PATH);
+        let cloudSets = normalizeSetsPayload(
+          Array.isArray(cloudRaw) ? cloudRaw : (cloudRaw && typeof cloudRaw === 'object' ? Object.values(cloudRaw) : [])
+        );
+
+        // Migrate legacy single-list questions if quiz_sets hasn't been created yet
+        if (cloudSets.length === 0) {
+          const legacyRaw = await fetchJsonNode(FIREBASE_LEGACY_PATH);
+          const legacyQuestions = sanitizeQuestions(
+            Array.isArray(legacyRaw) ? legacyRaw : (legacyRaw && typeof legacyRaw === 'object' ? Object.values(legacyRaw) : [])
+          );
+          if (legacyQuestions.length > 0) {
+            const migrated = createDefaultSet('Đề 1');
+            migrated.questions = legacyQuestions;
+            cloudSets = [migrated];
+            await pushSetsToFirebase(cloudSets);
+          }
+        }
+
+        if (cloudSets.length > 0) {
+          state.sets = cloudSets;
+          if (!state.sets.some(s => s.id === state.activeSetId)) {
+            state.activeSetId = state.sets[0].id;
+          }
+          saveLocalCache(state.sets, state.activeSetId);
+        }
+
         state.syncStatus = 'synced';
         syncAllUI();
         return true;
       } catch (err) {
         console.warn('Không tải được từ Firebase, dùng bản lưu cục bộ:', err);
-        state.questions = loadLocalQuestions();
         state.syncStatus = 'offline';
         syncAllUI();
         return false;
@@ -1001,11 +1130,19 @@ Giải thích: Lý do...'
       gameView: document.getElementById('gameView'),
       summaryView: document.getElementById('summaryView'),
 
-      // Lobby
+      // Lobby & Set Switcher
       lobbyStatusDot: document.getElementById('lobbyStatusDot'),
       lobbyStatusBadge: document.getElementById('lobbyStatusBadge'),
       cloudSyncBadge: document.getElementById('cloudSyncBadge'),
-      clearAllBtn: document.getElementById('clearAllBtn'),
+      activeSetTitleDisplay: document.getElementById('activeSetTitleDisplay'),
+      deleteCurrentSetBtn: document.getElementById('deleteCurrentSetBtn'),
+      totalSetsCount: document.getElementById('totalSetsCount'),
+      quizSetSelect: document.getElementById('quizSetSelect'),
+      quickNewSetBtn: document.getElementById('quickNewSetBtn'),
+      renameSetBtn: document.getElementById('renameSetBtn'),
+      renameSetBox: document.getElementById('renameSetBox'),
+      renameSetInput: document.getElementById('renameSetInput'),
+      confirmRenameSetBtn: document.getElementById('confirmRenameSetBtn'),
       lobbyPasteCodeBtn: document.getElementById('lobbyPasteCodeBtn'),
       lobbyManualCreateBtn: document.getElementById('lobbyManualCreateBtn'),
       shuffleQuestionsCheckbox: document.getElementById('shuffleQuestionsCheckbox'),
@@ -1052,12 +1189,13 @@ Giải thích: Lý do...'
       closeBuilderBtn: document.getElementById('closeBuilderBtn'),
       tabBulkMode: document.getElementById('tabBulkMode'),
       tabFormMode: document.getElementById('tabFormMode'),
-      drawerClearAllBtn: document.getElementById('drawerClearAllBtn'),
+      drawerClearCurrentSetBtn: document.getElementById('drawerClearCurrentSetBtn'),
       bulkModePanel: document.getElementById('bulkModePanel'),
       formModePanel: document.getElementById('formModePanel'),
+      targetSetNameInput: document.getElementById('targetSetNameInput'),
       clearTextareaBtn: document.getElementById('clearTextareaBtn'),
       bulkPasteTextarea: document.getElementById('bulkPasteTextarea'),
-      replaceImportBtn: document.getElementById('replaceImportBtn'),
+      saveAsNewSetBtn: document.getElementById('saveAsNewSetBtn'),
       appendImportBtn: document.getElementById('appendImportBtn'),
       bulkLoadedCount: document.getElementById('bulkLoadedCount'),
       bulkLoadedList: document.getElementById('bulkLoadedList'),
@@ -1123,7 +1261,7 @@ Giải thích: Lý do...'
     }
 
     // =========================================================================
-    // 5. LOBBY & GLOBAL UI SYNC
+    // 5. LOBBY, SET MANAGEMENT & GLOBAL UI SYNC
     // =========================================================================
     function switchView(target) {
       clearTimer();
@@ -1149,10 +1287,27 @@ Giải thích: Lý do...'
       }
     }
 
+    function renderSetSelector() {
+      const activeSet = getActiveSet();
+      dom.totalSetsCount.textContent = state.sets.length;
+      dom.activeSetTitleDisplay.textContent = activeSet.name;
+
+      dom.quizSetSelect.innerHTML = '';
+      state.sets.forEach((s, idx) => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.name} (${s.questions.length} câu)`;
+        if (s.id === activeSet.id) opt.selected = true;
+        dom.quizSetSelect.appendChild(opt);
+      });
+    }
+
     function syncAllUI() {
-      const count = state.questions.length;
+      const activeSet = getActiveSet();
+      const count = activeSet.questions.length;
       const hasQuestions = count > 0;
 
+      renderSetSelector();
       dom.headerCountPill.textContent = count;
 
       if (state.syncStatus === 'loading' && !hasQuestions) {
@@ -1160,10 +1315,10 @@ Giải thích: Lý do...'
         dom.lobbyStatusBadge.textContent = 'Đang tải đề từ Firebase...';
       } else if (hasQuestions) {
         dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-        dom.lobbyStatusBadge.textContent = `Sẵn sàng chơi • ${count} câu hỏi`;
+        dom.lobbyStatusBadge.textContent = `${activeSet.name} • ${count} câu hỏi`;
       } else {
         dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-purple-300';
-        dom.lobbyStatusBadge.textContent = 'Trạng thái trống • 0 câu hỏi';
+        dom.lobbyStatusBadge.textContent = `${activeSet.name} • 0 câu hỏi`;
       }
 
       updateSyncBadge();
@@ -1183,16 +1338,18 @@ Giải thích: Lý do...'
     }
 
     function renderLobby() {
-      const count = state.questions.length;
+      const questions = getActiveQuestions();
+      const activeSet = getActiveSet();
+      const count = questions.length;
       dom.lobbyListSummary.textContent = `${count} câu hỏi`;
 
       if (count === 0) {
         dom.lobbyQuestionsContainer.innerHTML = `
           <div class="rounded-2xl border-2 border-dashed border-white/15 bg-black/20 py-10 px-4 text-center space-y-2">
             <div class="text-3xl">📭</div>
-            <p class="text-sm sm:text-base font-extrabold text-white">Chưa có câu hỏi nào</p>
+            <p class="text-sm sm:text-base font-extrabold text-white">"${escapeHtml(activeSet.name)}" chưa có câu hỏi nào</p>
             <p class="text-xs sm:text-sm text-purple-200/70 max-w-md mx-auto">
-              Bấm nút <strong>"Dán mã câu hỏi (JSON / Văn bản)"</strong> hoặc <strong>"Tạo câu hỏi thủ công"</strong> ở trên để bắt đầu.
+              Bấm nút <strong>"Dán mã câu hỏi (JSON / Văn bản)"</strong> hoặc <strong>"Tạo câu hỏi thủ công"</strong> ở trên để thêm câu hỏi vào bộ đề này.
             </p>
           </div>
         `;
@@ -1202,7 +1359,7 @@ Giải thích: Lý do...'
       const listEl = document.createElement('div');
       listEl.className = 'space-y-2.5 max-h-80 overflow-y-auto pr-1';
 
-      state.questions.forEach((q, idx) => {
+      questions.forEach((q, idx) => {
         const letters = ['A', 'B', 'C', 'D'];
         const correctLetter = letters[q.correctIndex] || 'A';
         const row = document.createElement('div');
@@ -1251,29 +1408,72 @@ Giải thích: Lý do...'
       dom.lobbyQuestionsContainer.appendChild(listEl);
     }
 
-    async function clearAllQuestions(openPasteAfter = false) {
+    async function createBlankQuizSet() {
+      SoundEngine.click();
+      const suggestedName = `Đề ${state.sets.length + 1}`;
+      const newSet = createDefaultSet(suggestedName);
+      const nextSets = state.sets.concat(newSet);
+      await persistAllSets(nextSets, newSet.id);
+      showToast(`Đã tạo "${newSet.name}". Hãy nạp câu hỏi cho đề này!`, 'success');
+    }
+
+    async function renameActiveSet() {
+      const nextName = dom.renameSetInput.value.trim();
+      if (!nextName) {
+        showToast('Nhập tên bộ đề trước khi lưu.', 'error');
+        dom.renameSetInput.focus();
+        return;
+      }
+      const nextSets = state.sets.map(s =>
+        s.id === state.activeSetId ? { ...s, name: nextName, updatedAt: Date.now() } : s
+      );
+      dom.renameSetBox.classList.add('hidden');
+      await persistAllSets(nextSets, state.activeSetId);
+      showToast(`Đã đổi tên thành "${nextName}".`, 'success');
+    }
+
+    async function deleteCurrentSet() {
+      SoundEngine.click();
+      const activeSet = getActiveSet();
+      const remaining = state.sets.filter(s => s.id !== activeSet.id);
+      if (remaining.length === 0) {
+        const fresh = createDefaultSet('Đề 1');
+        await persistAllSets([fresh], fresh.id);
+        showToast('Đã làm trống "Đề 1".', 'info');
+      } else {
+        await persistAllSets(remaining, remaining[0].id);
+        showToast(`Đã xóa bộ đề "${activeSet.name}". Các đề khác vẫn giữ nguyên!`, 'info');
+      }
+    }
+
+    async function clearCurrentSetQuestions() {
       SoundEngine.click();
       state.editingIndex = null;
       resetManualFormFields();
-      dom.bulkPasteTextarea.value = '';
-      await syncQuestions([]);
-      showToast('Đã xóa toàn bộ câu hỏi và cập nhật lên Firebase.', 'info');
-      if (openPasteAfter) {
-        openDrawer('bulk');
-      }
+      const nextSets = state.sets.map(s =>
+        s.id === state.activeSetId ? { ...s, questions: [], updatedAt: Date.now() } : s
+      );
+      await persistAllSets(nextSets, state.activeSetId);
+      showToast('Đã xóa hết câu hỏi trong bộ đề hiện tại.', 'info');
     }
 
     async function deleteQuestionAt(idx) {
       SoundEngine.click();
-      const updated = state.questions.slice();
-      updated.splice(idx, 1);
+      const activeSet = getActiveSet();
+      const updatedQuestions = activeSet.questions.slice();
+      updatedQuestions.splice(idx, 1);
+
       if (state.editingIndex === idx) {
         state.editingIndex = null;
         resetManualFormFields();
       } else if (state.editingIndex !== null && state.editingIndex > idx) {
         state.editingIndex -= 1;
       }
-      await syncQuestions(updated);
+
+      const nextSets = state.sets.map(s =>
+        s.id === activeSet.id ? { ...s, questions: updatedQuestions, updatedAt: Date.now() } : s
+      );
+      await persistAllSets(nextSets, activeSet.id);
       showToast(`Đã xóa Câu #${idx + 1}.`, 'info');
     }
 
@@ -1288,15 +1488,16 @@ Giải thích: Lý do...'
     ];
 
     function startGame() {
-      if (state.questions.length === 0) {
-        showToast('Chưa có câu hỏi nào. Hãy dán mã hoặc tạo câu hỏi trước!', 'error');
+      const questions = getActiveQuestions();
+      if (questions.length === 0) {
+        showToast('Bộ đề này chưa có câu hỏi nào. Hãy dán mã hoặc tạo câu hỏi trước!', 'error');
         return;
       }
 
       const shuffleQ = dom.shuffleQuestionsCheckbox.checked;
       const shuffleOpt = dom.shuffleOptionsCheckbox.checked;
 
-      const orderedQuestions = shuffleQ ? shuffleArray(state.questions) : state.questions.slice();
+      const orderedQuestions = shuffleQ ? shuffleArray(questions) : questions.slice();
       state.deck = orderedQuestions.map(q => {
         const pairs = q.options.map((text, origIdx) => ({
           text,
@@ -1633,15 +1834,16 @@ Giải thích: Lý do...'
     }
 
     // =========================================================================
-    // 8. DRAWER: PASTE CODE (BLANK TEXTAREA) & MANUAL FORM
+    // 8. DRAWER: PASTE CODE & MANUAL FORM
     // =========================================================================
-    function openDrawer(tab = 'bulk', editIdx = null) {
+    function openDrawer(tab = 'bulk', editIdx = null, suggestNewSet = false) {
       setDrawerTab(tab);
 
       if (tab === 'bulk') {
+        dom.targetSetNameInput.value = suggestNewSet ? `Đề ${state.sets.length + 1}` : '';
         setTimeout(() => dom.bulkPasteTextarea.focus(), 120);
       } else if (tab === 'form') {
-        if (editIdx !== null && state.questions[editIdx]) {
+        if (editIdx !== null && getActiveQuestions()[editIdx]) {
           loadQuestionIntoForm(editIdx);
         } else {
           resetManualFormFields();
@@ -1678,18 +1880,19 @@ Giải thích: Lý do...'
     }
 
     function renderDrawerQuestionLists() {
-      const count = state.questions.length;
+      const questions = getActiveQuestions();
+      const count = questions.length;
       const containers = [dom.bulkLoadedList, dom.formLoadedList];
 
       containers.forEach(container => {
         if (!container) return;
         if (count === 0) {
-          container.innerHTML = `<p class="text-xs text-purple-200/60 italic py-2 text-center">Chưa có câu hỏi nào được nạp.</p>`;
+          container.innerHTML = `<p class="text-xs text-purple-200/60 italic py-2 text-center">Chưa có câu hỏi nào trong bộ đề này.</p>`;
           return;
         }
 
         container.innerHTML = '';
-        state.questions.forEach((q, idx) => {
+        questions.forEach((q, idx) => {
           const item = document.createElement('div');
           item.className = 'rounded-xl bg-black/30 border border-white/10 px-3 py-2 flex items-center justify-between gap-2';
           item.innerHTML = `
@@ -1816,19 +2019,66 @@ Giải thích: Lý do...'
       return result;
     }
 
-    async function handleImportCode(mode = 'replace') {
+    async function handleSaveAsNewSet() {
       try {
         const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
-        const merged = mode === 'replace' ? parsed : state.questions.concat(parsed);
-        const ok = await syncQuestions(merged);
+        const customName = dom.targetSetNameInput.value.trim();
+        const setName = customName || `Đề ${state.sets.length + 1}`;
+        const newSet = createDefaultSet(setName);
+        newSet.questions = parsed;
+
+        const nextSets = state.sets.concat(newSet);
+        const ok = await persistAllSets(nextSets, newSet.id);
         SoundEngine.correct(1);
         if (ok) {
-          showToast(
-            mode === 'replace'
-              ? `Đã nạp và đồng bộ ${parsed.length} câu hỏi lên Firebase!`
-              : `Đã thêm ${parsed.length} câu hỏi lên Firebase (Tổng: ${state.questions.length} câu).`,
-            'success'
+          dom.bulkPasteTextarea.value = '';
+          dom.targetSetNameInput.value = '';
+          showToast(`Đã lưu "${setName}" (${parsed.length} câu) — Đề cũ vẫn giữ nguyên!`, 'success');
+        }
+      } catch (err) {
+        SoundEngine.wrong();
+        showToast(err.message || 'Lỗi định dạng dữ liệu.', 'error');
+      }
+    }
+
+    async function handleAppendIntoTargetSet() {
+      try {
+        const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
+        const customName = dom.targetSetNameInput.value.trim();
+
+        let nextSets = state.sets.slice();
+        let targetId = state.activeSetId;
+
+        if (customName) {
+          const existing = nextSets.find(s => s.name.toLowerCase() === customName.toLowerCase());
+          if (existing) {
+            targetId = existing.id;
+            nextSets = nextSets.map(s =>
+              s.id === existing.id
+                ? { ...s, questions: s.questions.concat(parsed), updatedAt: Date.now() }
+                : s
+            );
+          } else {
+            const created = createDefaultSet(customName);
+            created.questions = parsed;
+            targetId = created.id;
+            nextSets.push(created);
+          }
+        } else {
+          nextSets = nextSets.map(s =>
+            s.id === targetId
+              ? { ...s, questions: s.questions.concat(parsed), updatedAt: Date.now() }
+              : s
           );
+        }
+
+        const targetSet = nextSets.find(s => s.id === targetId);
+        const ok = await persistAllSets(nextSets, targetId);
+        SoundEngine.correct(1);
+        if (ok) {
+          dom.bulkPasteTextarea.value = '';
+          dom.targetSetNameInput.value = '';
+          showToast(`Đã thêm ${parsed.length} câu vào "${targetSet?.name || 'bộ đề'}"!`, 'success');
         }
       } catch (err) {
         SoundEngine.wrong();
@@ -1839,7 +2089,7 @@ Giải thích: Lý do...'
     // Manual Form Helpers
     function resetManualFormFields() {
       state.editingIndex = null;
-      dom.formHeaderTitle.textContent = 'Thêm câu hỏi mới';
+      dom.formHeaderTitle.textContent = `Thêm câu hỏi vào "${getActiveSet().name}"`;
       dom.qPromptInput.value = '';
       dom.qCorrectSelect.value = '0';
       dom.qTimeInput.value = '20';
@@ -1851,10 +2101,10 @@ Giải thích: Lý do...'
     }
 
     function loadQuestionIntoForm(idx) {
-      const q = state.questions[idx];
+      const q = getActiveQuestions()[idx];
       if (!q) return;
       state.editingIndex = idx;
-      dom.formHeaderTitle.textContent = `Đang sửa Câu #${idx + 1}`;
+      dom.formHeaderTitle.textContent = `Đang sửa Câu #${idx + 1} (${getActiveSet().name})`;
       dom.qPromptInput.value = q.question || '';
       dom.qCorrectSelect.value = String(q.correctIndex ?? 0);
       dom.qTimeInput.value = String(q.timeLimit || 20);
@@ -1887,8 +2137,13 @@ Giải thích: Lý do...'
         return;
       }
 
+      const activeSet = getActiveSet();
+      const updatedQuestions = activeSet.questions.slice();
+      const wasEditing = state.editingIndex !== null && updatedQuestions[state.editingIndex];
+      const editIdx = state.editingIndex;
+
       const record = {
-        id: state.editingIndex !== null ? state.questions[state.editingIndex].id : `q-${Date.now()}`,
+        id: wasEditing ? updatedQuestions[editIdx].id : `q-${Date.now()}`,
         question,
         options,
         correctIndex,
@@ -1896,24 +2151,24 @@ Giải thích: Lý do...'
         explanation
       };
 
-      const updated = state.questions.slice();
-      const wasEditing = state.editingIndex !== null;
-      const editIdx = state.editingIndex;
-
       if (wasEditing) {
-        updated[editIdx] = record;
+        updatedQuestions[editIdx] = record;
       } else {
-        updated.push(record);
+        updatedQuestions.push(record);
       }
 
+      const nextSets = state.sets.map(s =>
+        s.id === activeSet.id ? { ...s, questions: updatedQuestions, updatedAt: Date.now() } : s
+      );
+
       resetManualFormFields();
-      const ok = await syncQuestions(updated);
+      const ok = await persistAllSets(nextSets, activeSet.id);
       SoundEngine.correct(1);
       if (ok) {
         showToast(
           wasEditing
-            ? `Đã cập nhật Câu #${editIdx + 1} lên Firebase!`
-            : `Đã thêm Câu #${updated.length} lên Firebase!`,
+            ? `Đã cập nhật Câu #${editIdx + 1} trong "${activeSet.name}"!`
+            : `Đã thêm Câu #${updatedQuestions.length} vào "${activeSet.name}"!`,
           'success'
         );
       }
@@ -1942,21 +2197,54 @@ Giải thích: Lý do...'
         switchView('lobby');
       });
 
+      // Set Switcher Events
+      dom.quizSetSelect.addEventListener('change', (e) => {
+        SoundEngine.click();
+        state.activeSetId = e.target.value;
+        state.editingIndex = null;
+        saveLocalCache(state.sets, state.activeSetId);
+        syncAllUI();
+        showToast(`Đã chuyển sang "${getActiveSet().name}".`, 'info');
+      });
+
+      dom.quickNewSetBtn.addEventListener('click', createBlankQuizSet);
+
+      dom.renameSetBtn.addEventListener('click', () => {
+        SoundEngine.click();
+        const willShow = dom.renameSetBox.classList.contains('hidden');
+        dom.renameSetBox.classList.toggle('hidden', !willShow);
+        if (willShow) {
+          dom.renameSetInput.value = getActiveSet().name;
+          dom.renameSetInput.focus();
+        }
+      });
+
+      dom.confirmRenameSetBtn.addEventListener('click', renameActiveSet);
+      dom.renameSetInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          renameActiveSet();
+        }
+      });
+
+      dom.deleteCurrentSetBtn.addEventListener('click', deleteCurrentSet);
+      dom.drawerClearCurrentSetBtn.addEventListener('click', clearCurrentSetQuestions);
+
+      // Drawer Triggers
       dom.lobbyPasteCodeBtn.addEventListener('click', () => {
         SoundEngine.click();
-        openDrawer('bulk');
+        openDrawer('bulk', null, true);
       });
       dom.headerPasteBtn.addEventListener('click', () => {
         SoundEngine.click();
-        openDrawer('bulk');
+        openDrawer('bulk', null, false);
       });
       dom.lobbyManualCreateBtn.addEventListener('click', () => {
         SoundEngine.click();
-        openDrawer('form');
+        openDrawer('form', null, false);
       });
-      dom.clearAllBtn.addEventListener('click', () => clearAllQuestions(false));
-      dom.drawerClearAllBtn.addEventListener('click', () => clearAllQuestions(false));
 
+      // Game & Summary Triggers
       dom.startGameBtn.addEventListener('click', () => {
         SoundEngine.click();
         startGame();
@@ -1972,11 +2260,14 @@ Giải thích: Lý do...'
       });
 
       dom.loadNewCodeBtn.addEventListener('click', () => {
-        clearAllQuestions(true);
+        SoundEngine.click();
+        switchView('lobby');
+        openDrawer('bulk', null, true);
       });
 
       dom.nextQuestionBtn.addEventListener('click', nextQuestion);
 
+      // Drawer Controls
       dom.closeBuilderBtn.addEventListener('click', () => {
         SoundEngine.click();
         closeDrawer();
@@ -1991,14 +2282,16 @@ Giải thích: Lý do...'
         setDrawerTab('form');
       });
 
+      // Bulk Import Actions
       dom.clearTextareaBtn.addEventListener('click', () => {
         SoundEngine.click();
         dom.bulkPasteTextarea.value = '';
         dom.bulkPasteTextarea.focus();
       });
-      dom.replaceImportBtn.addEventListener('click', () => handleImportCode('replace'));
-      dom.appendImportBtn.addEventListener('click', () => handleImportCode('append'));
+      dom.saveAsNewSetBtn.addEventListener('click', handleSaveAsNewSet);
+      dom.appendImportBtn.addEventListener('click', handleAppendIntoTargetSet);
 
+      // Manual Form Actions
       dom.resetFormFieldsBtn.addEventListener('click', () => {
         SoundEngine.click();
         resetManualFormFields();
@@ -2006,6 +2299,7 @@ Giải thích: Lý do...'
       });
       dom.saveManualQuestionBtn.addEventListener('click', saveManualQuestion);
 
+      // Keyboard shortcuts
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !dom.builderDrawer.classList.contains('translate-x-full')) {
           closeDrawer();
@@ -2034,7 +2328,7 @@ Giải thích: Lý do...'
     window.addEventListener('DOMContentLoaded', () => {
       bindEvents();
       syncAllUI();
-      syncQuestions();
+      loadSetsFromCloud();
     });
   </script>
 </body>
