@@ -4,214 +4,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quizizz Mini / Trắc Nghiệm Tương Tác</title>
-
-  <!-- Load Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Load Be Vietnam Pro & Inter Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Be Vietnam Pro"', 'Inter', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            qz: {
-              bg: '#1e0929',
-              surface: '#2e0f3d',
-              card: '#3a144d',
-              pink: '#ff2a85',
-              gold: '#ffd000',
-              red: '#e21b3c',
-              blue: '#1368ce',
-              yellow: '#d89e00',
-              green: '#26890c',
-            }
-          }
-        }
-      }
-    };
-  </script>
-
-  <style>
-    body {
-      font-family: 'Be Vietnam Pro', 'Inter', system-ui, sans-serif;
-      background: radial-gradient(circle at 18% 12%, #3d1252 0%, #2e0f3d 42%, #1e0929 100%);
-      color: #ffffff;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    .glass-panel {
-      background: rgba(46, 15, 61, 0.82);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-    }
-
-    /* 4 Quizizz Answer Card Colors with Tactile 3D Lip */
-    .qz-card-red {
-      background-color: #e21b3c;
-      box-shadow: 0 7px 0 #9e1028, 0 14px 26px rgba(226, 27, 60, 0.35);
-    }
-    .qz-card-red:hover:not(:disabled) {
-      transform: translateY(-3px);
-      background-color: #ec2445;
-      box-shadow: 0 10px 0 #9e1028, 0 18px 30px rgba(226, 27, 60, 0.48);
-    }
-    .qz-card-red:active:not(:disabled) {
-      transform: translateY(4px);
-      box-shadow: 0 3px 0 #9e1028;
-    }
-
-    .qz-card-blue {
-      background-color: #1368ce;
-      box-shadow: 0 7px 0 #0c478f, 0 14px 26px rgba(19, 104, 206, 0.35);
-    }
-    .qz-card-blue:hover:not(:disabled) {
-      transform: translateY(-3px);
-      background-color: #1a73de;
-      box-shadow: 0 10px 0 #0c478f, 0 18px 30px rgba(19, 104, 206, 0.48);
-    }
-    .qz-card-blue:active:not(:disabled) {
-      transform: translateY(4px);
-      box-shadow: 0 3px 0 #0c478f;
-    }
-
-    .qz-card-yellow {
-      background-color: #d89e00;
-      box-shadow: 0 7px 0 #946c00, 0 14px 26px rgba(216, 158, 0, 0.35);
-    }
-    .qz-card-yellow:hover:not(:disabled) {
-      transform: translateY(-3px);
-      background-color: #e6a900;
-      box-shadow: 0 10px 0 #946c00, 0 18px 30px rgba(216, 158, 0, 0.48);
-    }
-    .qz-card-yellow:active:not(:disabled) {
-      transform: translateY(4px);
-      box-shadow: 0 3px 0 #946c00;
-    }
-
-    .qz-card-green {
-      background-color: #26890c;
-      box-shadow: 0 7px 0 #195d07, 0 14px 26px rgba(38, 137, 12, 0.35);
-    }
-    .qz-card-green:hover:not(:disabled) {
-      transform: translateY(-3px);
-      background-color: #2d9b10;
-      box-shadow: 0 10px 0 #195d07, 0 18px 30px rgba(38, 137, 12, 0.48);
-    }
-    .qz-card-green:active:not(:disabled) {
-      transform: translateY(4px);
-      box-shadow: 0 3px 0 #195d07;
-    }
-
-    .qz-answer-card {
-      transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease, background-color 0.16s ease, opacity 0.25s ease;
-    }
-
-    @keyframes popIn {
-      0% { opacity: 0; transform: scale(0.95) translateY(8px); }
-      100% { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .animate-pop-in {
-      animation: popIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    }
-
-    @keyframes shakeWrong {
-      0%, 100% { transform: translateX(0); }
-      20% { transform: translateX(-7px); }
-      40% { transform: translateX(7px); }
-      60% { transform: translateX(-5px); }
-      80% { transform: translateX(5px); }
-    }
-    .animate-shake {
-      animation: shakeWrong 0.36s ease-in-out;
-    }
-
-    @keyframes urgentPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 42, 133, 0.65); }
-      50% { box-shadow: 0 0 0 10px rgba(255, 42, 133, 0); }
-    }
-    .timer-urgent {
-      animation: urgentPulse 0.95s infinite;
-    }
-
-    /* Clean scrollbar */
-    ::-webkit-scrollbar {
-      width: 7px;
-      height: 7px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(30, 9, 41, 0.6);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(255, 42, 133, 0.45);
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 42, 133, 0.75);
-    }
-  </style>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body class="antialiased selection:bg-[#ff2a85] selection:text-white">
-
-  <!-- Toast Banner Container (No alert/confirm) -->
   <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-3 sm:px-0"></div>
 
-  <!-- Top Header Bar -->
   <header class="sticky top-0 z-30 border-b border-white/10 bg-[#1e0929]/90 backdrop-blur-md">
     <div class="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2.5">
-      <!-- Brand Logo -->
-      <button
-        id="homeLogoBtn"
-        type="button"
-        class="flex items-center gap-2.5 text-left rounded-xl p-1.5 -ml-1.5 hover:bg-white/5 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#ff2a85]"
-        title="Về màn hình chính"
-      >
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff2a85] to-[#8b1ec4] flex items-center justify-center shadow-lg shadow-[#ff2a85]/30 shrink-0">
-          <svg class="w-5 h-5 text-[#ffd000]" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
-          </svg>
+      <button id="homeLogoBtn" type="button" class="flex items-center gap-2.5 text-left rounded-xl p-1.5 -ml-1.5 hover:bg-white/5 transition cursor-pointer">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff2a85] to-[#8b1ec4] flex items-center justify-center shadow-lg shrink-0">
+          <svg class="w-5 h-5 text-[#ffd000]" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" /></svg>
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <span class="font-black text-base sm:text-lg tracking-tight text-white">
-              Quizizz Mini
-            </span>
-            <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[#ff2a85]/20 text-[#ff7ab5] border border-[#ff2a85]/40">
-              Trắc Nghiệm Tương Tác
-            </span>
-          </div>
-          <p class="text-xs text-purple-200/70 hidden sm:block">Lưu tách riêng từng bộ đề trên Firebase</p>
+          <span class="font-black text-base sm:text-lg text-white">Quizizz Mini</span>
+          <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[#ff2a85]/20 text-[#ff7ab5] border border-[#ff2a85]/40 ml-1">Multi-Set</span>
         </div>
       </button>
 
-      <!-- Top Right Controls -->
       <div class="flex items-center gap-2">
-        <!-- Sound Toggle -->
-        <button
-          id="soundToggleBtn"
-          type="button"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/15 border border-white/15 transition cursor-pointer"
-          aria-pressed="true"
-          title="Bật/Tắt hiệu ứng âm thanh"
-        >
+        <button id="refreshCloudBtn" type="button" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/15 border border-white/15 cursor-pointer">🔄</button>
+        <button id="soundToggleBtn" type="button" aria-pressed="true" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/15 border border-white/15 cursor-pointer">
           <span id="soundIcon">🔊</span>
           <span id="soundLabel" class="hidden md:inline">Âm thanh: Bật</span>
         </button>
-
-        <!-- Paste Code Shortcut -->
-        <button
-          id="headerPasteBtn"
-          type="button"
-          class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-[#ff2a85] hover:bg-[#ff4294] text-white shadow-md shadow-[#ff2a85]/30 transition cursor-pointer"
-        >
+        <button id="headerPasteBtn" type="button" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-[#ff2a85] hover:bg-[#ff4294] text-white cursor-pointer">
           <span>📋</span>
           <span>Dán mã</span>
           <span id="headerCountPill" class="px-1.5 py-0.5 rounded-md bg-black/25 text-xs font-black text-[#ffd000]">0</span>
@@ -220,2116 +40,301 @@
     </div>
   </header>
 
-  <!-- Main Content -->
   <main class="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
-
-    <!-- ==================== VIEW 1: LOBBY / MULTI-SET HOME ==================== -->
     <section id="lobbyView" class="animate-pop-in space-y-6">
-      <div class="glass-panel rounded-3xl p-5 sm:p-8 relative overflow-hidden">
-        <!-- Ambient Neon Glows -->
-        <div class="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-[#ff2a85]/20 blur-3xl"></div>
-        <div class="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-[#ffd000]/10 blur-3xl"></div>
-
-        <div class="relative z-10 space-y-6">
-          <!-- Status Header -->
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-white/10">
-            <div class="space-y-1.5">
-              <div class="flex flex-wrap items-center gap-2">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-extrabold text-[#ffd000]">
-                  <span id="lobbyStatusDot" class="w-2 h-2 rounded-full bg-purple-300"></span>
-                  <span id="lobbyStatusBadge">Đang tải dữ liệu...</span>
-                </div>
-                <span id="cloudSyncBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-bold text-emerald-200">
-                  ☁️ Firebase Realtime
-                </span>
-              </div>
-              <h1 id="activeSetTitleDisplay" class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
-                Chọn hoặc Tạo Bộ Đề
-              </h1>
-              <p class="text-sm sm:text-base text-purple-200/80 max-w-2xl">
-                Mỗi bộ đề được lưu tách riêng trên Firebase. Nạp đề mới vào tên đề khác để giữ nguyên toàn bộ đề cũ.
-              </p>
-            </div>
-
-            <!-- Delete Current Set Button -->
-            <button
-              id="deleteCurrentSetBtn"
-              type="button"
-              class="self-start md:self-center px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 border border-rose-400/30 transition cursor-pointer shrink-0"
-            >
-              🗑️ Xóa bộ đề hiện tại
-            </button>
-          </div>
-
-          <!-- Quiz Set Switcher & Quick Create/Rename Bar -->
-          <div class="rounded-2xl bg-black/25 border border-white/12 p-4 space-y-3">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
-                🗂️ Bộ đề đang chọn (<span id="totalSetsCount">0</span> bộ đề)
-              </span>
-              <div class="flex flex-wrap items-center gap-2">
-                <button
-                  id="quickNewSetBtn"
-                  type="button"
-                  class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-[#ffd000] hover:bg-[#ffe047] text-[#1e0929] transition cursor-pointer"
-                >
-                  + Tạo bộ đề mới
-                </button>
-                <button
-                  id="renameSetBtn"
-                  type="button"
-                  class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/15 text-purple-100 transition cursor-pointer"
-                >
-                  ✏️ Đổi tên đề
-                </button>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-              <div class="sm:col-span-7">
-                <select
-                  id="quizSetSelect"
-                  class="w-full rounded-xl bg-[#1e0929] border border-white/20 focus:border-[#ff2a85] px-3.5 py-2.5 text-sm font-bold text-white outline-none cursor-pointer"
-                >
-                  <!-- Populated dynamically -->
-                </select>
-              </div>
-
-              <div id="renameSetBox" class="sm:col-span-5 hidden flex items-center gap-2">
-                <input
-                  id="renameSetInput"
-                  type="text"
-                  placeholder="Tên bộ đề mới..."
-                  class="flex-1 min-w-0 rounded-xl bg-black/45 border border-[#ffd000]/60 px-3 py-2 text-xs sm:text-sm text-white outline-none"
-                />
-                <button
-                  id="confirmRenameSetBtn"
-                  type="button"
-                  class="px-3 py-2 rounded-xl text-xs font-extrabold bg-emerald-500 hover:bg-emerald-400 text-[#0b2412] transition cursor-pointer shrink-0"
-                >
-                  Lưu
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Two Primary Input Action Cards -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Action 1: Paste Code (JSON / Text) -->
-            <button
-              id="lobbyPasteCodeBtn"
-              type="button"
-              class="group text-left rounded-2xl p-5 bg-gradient-to-br from-[#ff2a85]/25 via-[#3a144d] to-[#2e0f3d] hover:from-[#ff2a85]/35 hover:to-[#3a144d] border-2 border-[#ff2a85]/60 hover:border-[#ff2a85] transition shadow-lg shadow-[#ff2a85]/15 cursor-pointer flex items-start gap-4"
-            >
-              <div class="w-12 h-12 rounded-2xl bg-[#ff2a85] text-white flex items-center justify-center text-2xl font-black shrink-0 shadow-md group-hover:scale-105 transition">
-                📋
-              </div>
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <span class="font-black text-base sm:text-lg text-white">Dán mã câu hỏi (JSON / Văn bản)</span>
-                </div>
-                <p class="text-xs sm:text-sm text-purple-100/80 leading-relaxed">
-                  Đẩy vào một bộ đề mới (giữ nguyên đề cũ) hoặc nạp vào bộ đề đang chọn.
-                </p>
-              </div>
-            </button>
-
-            <!-- Action 2: Create Question Manually -->
-            <button
-              id="lobbyManualCreateBtn"
-              type="button"
-              class="group text-left rounded-2xl p-5 bg-[#3a144d]/75 hover:bg-[#3a144d] border-2 border-white/15 hover:border-[#ffd000]/70 transition cursor-pointer flex items-start gap-4"
-            >
-              <div class="w-12 h-12 rounded-2xl bg-[#ffd000] text-[#1e0929] flex items-center justify-center text-2xl font-black shrink-0 shadow-md group-hover:scale-105 transition">
-                ✏️
-              </div>
-              <div class="space-y-1">
-                <span class="font-black text-base sm:text-lg text-white block">Tạo câu hỏi thủ công</span>
-                <p class="text-xs sm:text-sm text-purple-100/80 leading-relaxed">
-                  Tự nhập từng câu hỏi vào bộ đề hiện tại, chọn đáp án đúng và thời gian trả lời.
-                </p>
-              </div>
-            </button>
-          </div>
-
-          <!-- Game Options & Primary Start Button -->
-          <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-white/10">
-            <div class="flex flex-wrap items-center gap-2.5">
-              <label class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-white/10 transition">
-                <input id="shuffleQuestionsCheckbox" type="checkbox" class="w-4 h-4 accent-[#ff2a85] rounded cursor-pointer" />
-                <span>Xáo trộn thứ tự câu hỏi</span>
-              </label>
-
-              <label class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-white/10 transition">
-                <input id="shuffleOptionsCheckbox" type="checkbox" checked class="w-4 h-4 accent-[#ff2a85] rounded cursor-pointer" />
-                <span>Đảo vị trí 4 thẻ màu</span>
-              </label>
-            </div>
-
-            <!-- Start Game CTA (Disabled when 0 questions) -->
-            <button
-              id="startGameBtn"
-              type="button"
-              disabled
-              class="px-7 py-4 rounded-2xl font-black text-base sm:text-lg transition flex items-center justify-center gap-2.5 shrink-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-purple-200/60 disabled:border disabled:border-white/15 bg-gradient-to-r from-[#ff2a85] via-[#e21b3c] to-[#ffd000] text-white shadow-xl shadow-[#ff2a85]/35 hover:brightness-110 cursor-pointer"
-            >
-              <span>▶</span>
-              <span id="startGameBtnLabel">Bắt đầu chơi (0 câu)</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loaded Questions Preview Box -->
-      <div class="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
-            <span>📚</span>
-            <span>Danh sách câu hỏi của bộ đề hiện tại</span>
-          </h2>
-          <span id="lobbyListSummary" class="text-xs sm:text-sm font-bold text-[#ffd000]">0 câu hỏi</span>
-        </div>
-
-        <div id="lobbyQuestionsContainer">
-          <!-- Rendered dynamically by JS -->
-        </div>
-      </div>
-    </section>
-
-    <!-- ==================== VIEW 2: ACTIVE QUIZIZZ GAMEPLAY ==================== -->
-    <section id="gameView" class="hidden animate-pop-in space-y-4 sm:space-y-5">
-      <!-- Top HUD -->
-      <div class="glass-panel rounded-2xl p-3.5 sm:p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-2.5 sm:gap-3">
-            <div class="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/10 text-xs sm:text-sm font-extrabold">
-              Câu <span id="currentQNum" class="text-[#ffd000]">1</span>/<span id="totalQNum">1</span>
-            </div>
-
-            <div
-              id="streakBadge"
-              class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#ff2a85]/25 to-[#ffd000]/25 border border-[#ffd000]/40 text-[#ffd000] text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition-transform"
-            >
-              <span>🔥</span>
-              <span>Streak: <span id="streakCount">0</span></span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2.5 sm:gap-3 ml-auto">
-            <div class="px-3.5 py-1.5 rounded-xl bg-[#1e0929]/90 border border-white/15 text-right">
-              <span class="text-[10px] uppercase tracking-wider text-purple-200/75 block leading-none">Điểm số</span>
-              <span id="liveScore" class="text-base sm:text-lg font-black text-[#ffd000] leading-tight">0</span>
-            </div>
-
-            <div
-              id="timerPill"
-              class="w-14 h-12 sm:w-16 sm:h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#8b1ec4] border-2 border-white/25 flex flex-col items-center justify-center shadow-lg shrink-0"
-            >
-              <span id="timerText" class="text-lg sm:text-xl font-black leading-none text-white">20</span>
-              <span class="text-[9px] uppercase tracking-wider text-white/85 font-bold">giây</span>
-            </div>
+      <div class="glass-panel rounded-3xl p-5 sm:p-8 space-y-6">
+        <!-- Owner / Guest Role Bar -->
+        <div class="rounded-2xl bg-black/30 border border-white/12 p-3.5 flex flex-wrap items-center justify-between gap-3">
+          <span id="ownerRoleBadge" class="text-xs font-extrabold px-3 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-400/35">
+            👀 Chế độ Xem &amp; Chơi
+          </span>
+          <div id="ownerLoginBox" class="flex items-center gap-2">
+            <input id="ownerPinInput" type="password" placeholder="Mã PIN chủ sở hữu..." class="rounded-xl bg-black/50 border border-white/15 px-3 py-1.5 text-xs text-white outline-none w-40" />
+            <button id="ownerUnlockBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-[#ffd000] text-[#1e0929] cursor-pointer">Mở quyền sửa</button>
+            <button id="ownerLockBtn" type="button" class="hidden px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-purple-100 cursor-pointer">Khóa lại</button>
           </div>
         </div>
 
-        <!-- Countdown Progress Bar -->
-        <div class="mt-3 w-full h-2.5 rounded-full bg-black/40 overflow-hidden p-0.5">
-          <div
-            id="timerBar"
-            class="h-full rounded-full bg-gradient-to-r from-[#26890c] via-[#ffd000] to-[#ff2a85] transition-all duration-150 ease-linear"
-            style="width: 100%;"
-          ></div>
-        </div>
-      </div>
-
-      <!-- Question Card -->
-      <div class="glass-panel rounded-3xl p-5 sm:p-8 text-center">
-        <span class="inline-block px-3 py-1 rounded-full bg-white/10 text-purple-200 text-xs font-bold mb-3">
-          Chọn 1 đáp án chính xác
-        </span>
-        <h2 id="questionPrompt" class="text-lg sm:text-2xl md:text-[26px] font-extrabold leading-snug text-white max-w-3xl mx-auto">
-          ...
-        </h2>
-      </div>
-
-      <!-- 4 Quizizz Colored Answer Cards -->
-      <div id="answersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-        <!-- Rendered dynamically -->
-      </div>
-
-      <!-- Post-Answer Feedback Bar -->
-      <div id="feedbackBanner" class="hidden glass-panel rounded-2xl p-4 sm:p-5 border border-white/20 animate-pop-in">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="space-y-1">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div class="space-y-1.5">
             <div class="flex flex-wrap items-center gap-2">
-              <span id="feedbackTitle" class="text-lg sm:text-xl font-black"></span>
-              <span id="feedbackPointsPill" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/15"></span>
+              <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-extrabold text-[#ffd000]">
+                <span id="lobbyStatusDot" class="w-2 h-2 rounded-full bg-purple-300"></span>
+                <span id="lobbyStatusBadge">Đang tải...</span>
+              </span>
+              <span id="cloudSyncBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-bold text-emerald-200">☁️ Firebase Realtime</span>
             </div>
-            <p id="feedbackExplanation" class="text-xs sm:text-sm text-purple-100/90 leading-relaxed"></p>
+            <h1 id="activeSetTitleDisplay" class="text-2xl sm:text-4xl font-black text-white">Đề 1</h1>
           </div>
 
-          <button
-            id="nextQuestionBtn"
-            type="button"
-            class="px-6 py-3 rounded-2xl font-extrabold text-sm sm:text-base bg-[#ff2a85] hover:bg-[#ff4294] text-white shadow-lg shadow-[#ff2a85]/35 transition shrink-0 cursor-pointer"
-          >
-            Câu tiếp theo →
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="pinSetBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-white/10 hover:bg-white/15 border border-white/15 cursor-pointer">📌 Ghim đề</button>
+            <button id="duplicateSetBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-white/10 hover:bg-white/15 border border-white/15 cursor-pointer">📑 Nhân bản</button>
+            <button id="deleteCurrentSetBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 border border-rose-400/30 cursor-pointer">🗑️ Xóa bộ đề hiện tại</button>
+          </div>
+        </div>
+
+        <!-- Set Switcher & Backup -->
+        <div class="rounded-2xl bg-black/25 border border-white/12 p-4 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">🗂️ Bộ đề (<span id="totalSetsCount">1</span>)</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="quickNewSetBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-[#ffd000] text-[#1e0929] cursor-pointer">+ Tạo bộ đề mới</button>
+              <button id="renameSetBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 border border-white/15 cursor-pointer">✏️ Đổi tên đề</button>
+              <button id="copySetJsonBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 border border-white/15 cursor-pointer">📄 Copy JSON</button>
+              <button id="downloadSetJsonBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 border border-white/15 cursor-pointer">⬇️ Tải JSON</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <input id="setFilterInput" type="search" placeholder="🔍 Lọc tên bộ đề..." class="sm:col-span-4 rounded-xl bg-black/45 border border-white/15 px-3.5 py-2.5 text-xs sm:text-sm text-white outline-none" />
+            <select id="quizSetSelect" class="sm:col-span-8 rounded-xl bg-[#1e0929] border border-white/20 px-3.5 py-2.5 text-sm font-bold text-white outline-none cursor-pointer"></select>
+          </div>
+
+          <div id="renameSetBox" class="hidden flex items-center gap-2">
+            <input id="renameSetInput" type="text" placeholder="Tên bộ đề mới..." class="flex-1 rounded-xl bg-black/45 border border-[#ffd000]/60 px-3.5 py-2 text-sm text-white outline-none" />
+            <button id="confirmRenameSetBtn" type="button" class="px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-500 text-[#0b2412] cursor-pointer">Lưu tên</button>
+          </div>
+        </div>
+
+        <!-- Primary Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button id="lobbyPasteCodeBtn" type="button" class="text-left rounded-2xl p-5 bg-gradient-to-br from-[#ff2a85]/25 via-[#3a144d] to-[#2e0f3d] border-2 border-[#ff2a85]/60 cursor-pointer flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#ff2a85] flex items-center justify-center text-2xl shrink-0">📋</div>
+            <div>
+              <span class="font-black text-base sm:text-lg text-white block">Dán mã câu hỏi (JSON / Văn bản)</span>
+              <span class="text-xs sm:text-sm text-purple-100/80">Đẩy đề mới giữ nguyên đề cũ hoặc nạp vào đề đích.</span>
+            </div>
+          </button>
+
+          <button id="lobbyManualCreateBtn" type="button" class="text-left rounded-2xl p-5 bg-[#3a144d]/75 border-2 border-white/15 cursor-pointer flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#ffd000] text-[#1e0929] flex items-center justify-center text-2xl shrink-0">✏️</div>
+            <div>
+              <span class="font-black text-base sm:text-lg text-white block">Tạo câu hỏi thủ công</span>
+              <span class="text-xs sm:text-sm text-purple-100/80">Thêm hoặc sửa từng câu hỏi trong bộ đề hiện tại.</span>
+            </div>
           </button>
         </div>
+
+        <!-- Start Game Bar -->
+        <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-white/10">
+          <div class="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <label class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
+              <input id="shuffleQuestionsCheckbox" type="checkbox" class="w-4 h-4 accent-[#ff2a85]" />
+              <span>Xáo trộn câu hỏi</span>
+            </label>
+            <label class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
+              <input id="shuffleOptionsCheckbox" type="checkbox" checked class="w-4 h-4 accent-[#ff2a85]" />
+              <span>Đảo 4 thẻ màu</span>
+            </label>
+          </div>
+
+          <button id="startGameBtn" type="button" disabled class="px-7 py-4 rounded-2xl font-black text-base sm:text-lg disabled:opacity-45 bg-gradient-to-r from-[#ff2a85] via-[#e21b3c] to-[#ffd000] text-white cursor-pointer">
+            <span>▶</span>
+            <span id="startGameBtnLabel">Bắt đầu chơi (0 câu)</span>
+          </button>
+        </div>
+
+        <!-- Guest Edit Permission Request Form -->
+        <div id="guestRequestPanel" class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-4 space-y-2.5">
+          <div class="text-xs font-extrabold text-[#ffd000]">📩 Muốn sửa/thêm/xóa đề? Gửi yêu cầu quyền tới chủ sở hữu</div>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+            <input id="guestNameInput" type="text" placeholder="Tên của bạn..." class="sm:col-span-4 rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-xs text-white outline-none" />
+            <input id="guestReasonInput" type="text" placeholder="Nội dung cần sửa hoặc thêm..." class="sm:col-span-5 rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-xs text-white outline-none" />
+            <button id="sendAccessRequestBtn" type="button" class="sm:col-span-3 py-2 px-3 rounded-xl text-xs font-extrabold bg-[#ff2a85] hover:bg-[#ff4294] text-white cursor-pointer">Gửi yêu cầu</button>
+          </div>
+        </div>
+
+        <!-- Owner Requests Inbox -->
+        <div id="ownerRequestsPanel" class="hidden rounded-2xl bg-emerald-500/10 border border-emerald-400/30 p-4 space-y-2.5">
+          <div class="text-xs font-extrabold text-emerald-200">📬 Yêu cầu quyền sửa từ người dùng</div>
+          <div id="ownerRequestsList" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- Questions List + Search + Undo Delete -->
+      <div class="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-base sm:text-lg font-extrabold text-white">📚 Danh sách câu hỏi</h2>
+          <div class="flex items-center gap-2">
+            <button id="undoDeleteBtn" type="button" class="hidden px-3 py-1 rounded-xl text-xs font-extrabold bg-amber-400 text-[#1e0929] cursor-pointer">↩ Hoàn tác xóa</button>
+            <span id="lobbyListSummary" class="text-xs sm:text-sm font-bold text-[#ffd000]">0 câu hỏi</span>
+          </div>
+        </div>
+
+        <input id="questionSearchInput" type="search" placeholder="🔎 Tìm nhanh nội dung câu hỏi hoặc đáp án..." class="w-full rounded-xl bg-black/40 border border-white/15 px-3.5 py-2 text-xs sm:text-sm text-white outline-none" />
+        <div id="lobbyQuestionsContainer"></div>
       </div>
     </section>
 
-    <!-- ==================== VIEW 3: END-OF-GAME SUMMARY ==================== -->
-    <section id="summaryView" class="hidden animate-pop-in space-y-6">
-      <div class="glass-panel rounded-3xl p-6 sm:p-8 text-center relative overflow-hidden">
-        <div class="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-[#ff2a85]/20 blur-3xl"></div>
-
-        <div class="relative z-10 max-w-2xl mx-auto space-y-4">
-          <div id="summaryTrophy" class="text-5xl sm:text-6xl">🏆</div>
-          <h2 id="summaryHeadline" class="text-2xl sm:text-4xl font-black text-white">
-            Hoàn thành lượt chơi!
-          </h2>
-          <p id="summarySubtext" class="text-sm sm:text-base text-purple-200/80"></p>
-
-          <!-- Summary Metrics -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 pt-2">
-            <div class="rounded-2xl bg-white/10 border border-white/10 p-3 sm:p-4">
-              <div class="text-[11px] uppercase tracking-wider text-purple-200/75 font-bold">Tổng điểm</div>
-              <div id="finalScoreText" class="text-xl sm:text-2xl font-black text-[#ffd000] mt-1">0</div>
+    <!-- GAME VIEW -->
+    <section id="gameView" class="hidden animate-pop-in space-y-4 sm:space-y-5">
+      <div class="glass-panel rounded-2xl p-3.5 sm:p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <button id="exitGameBtn" type="button" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-rose-500/25 border border-white/15 text-xs font-bold cursor-pointer">← Thoát ván</button>
+            <div class="px-3.5 py-1.5 rounded-xl bg-white/10 text-xs sm:text-sm font-extrabold">
+              Câu <span id="currentQNum" class="text-[#ffd000]">1</span>/<span id="totalQNum">1</span>
             </div>
-            <div class="rounded-2xl bg-white/10 border border-white/10 p-3 sm:p-4">
-              <div class="text-[11px] uppercase tracking-wider text-purple-200/75 font-bold">Chính xác</div>
-              <div id="finalAccuracyText" class="text-xl sm:text-2xl font-black text-emerald-300 mt-1">0%</div>
-            </div>
-            <div class="rounded-2xl bg-white/10 border border-white/10 p-3 sm:p-4">
-              <div class="text-[11px] uppercase tracking-wider text-purple-200/75 font-bold">Max Streak</div>
-              <div id="finalMaxStreakText" class="text-xl sm:text-2xl font-black text-[#ff7ab5] mt-1">0🔥</div>
-            </div>
-            <div class="rounded-2xl bg-white/10 border border-white/10 p-3 sm:p-4">
-              <div class="text-[11px] uppercase tracking-wider text-purple-200/75 font-bold">Đúng / Sai</div>
-              <div id="finalRightWrongText" class="text-xl sm:text-2xl font-black text-white mt-1">0 / 0</div>
+            <div id="streakBadge" class="px-3.5 py-1.5 rounded-xl bg-white/10 border border-[#ffd000]/40 text-[#ffd000] text-xs sm:text-sm font-extrabold">
+              🔥 Streak: <span id="streakCount">0</span>
             </div>
           </div>
 
-          <!-- Summary Actions -->
-          <div class="pt-3 flex flex-wrap items-center justify-center gap-3">
-            <button
-              id="playAgainBtn"
-              type="button"
-              class="px-6 py-3 rounded-2xl font-extrabold text-sm sm:text-base bg-[#ff2a85] hover:bg-[#ff4294] text-white shadow-lg shadow-[#ff2a85]/35 transition cursor-pointer"
-            >
-              ↻ Chơi lại
-            </button>
-            <button
-              id="loadNewCodeBtn"
-              type="button"
-              class="px-5 py-3 rounded-2xl font-extrabold text-sm sm:text-base bg-[#ffd000] hover:bg-[#ffe047] text-[#1e0929] shadow-lg transition cursor-pointer"
-            >
-              📋 Đẩy bộ đề mới
-            </button>
-            <button
-              id="backToLobbyBtn"
-              type="button"
-              class="px-5 py-3 rounded-2xl font-bold text-sm sm:text-base bg-white/10 hover:bg-white/15 border border-white/15 text-purple-100 transition cursor-pointer"
-            >
-              Về trang chủ
-            </button>
+          <div class="flex items-center gap-2.5 ml-auto">
+            <div class="px-3.5 py-1.5 rounded-xl bg-black/35 text-right">
+              <span class="text-[10px] uppercase text-purple-200/75 block">Điểm</span>
+              <span id="liveScore" class="text-base sm:text-lg font-black text-[#ffd000]">0</span>
+            </div>
+            <div id="timerPill" class="w-14 h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#8b1ec4] flex flex-col items-center justify-center">
+              <span id="timerText" class="text-lg font-black leading-none">20</span>
+              <span class="text-[9px] font-bold">giây</span>
+            </div>
           </div>
+        </div>
+        <div class="w-full h-2.5 rounded-full bg-black/40 overflow-hidden p-0.5">
+          <div id="timerBar" class="h-full rounded-full bg-gradient-to-r from-[#26890c] via-[#ffd000] to-[#ff2a85] transition-all duration-150" style="width: 100%;"></div>
         </div>
       </div>
 
-      <!-- Detailed Answer Review -->
-      <div class="glass-panel rounded-3xl p-5 sm:p-7 space-y-4">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg sm:text-xl font-extrabold flex items-center gap-2">
-            <span>🔍</span>
-            <span>Xem lại đáp án</span>
-          </h3>
-          <span id="reviewSummaryCount" class="text-xs sm:text-sm font-bold text-[#ffd000]"></span>
+      <div class="glass-panel rounded-3xl p-5 sm:p-8 text-center">
+        <h2 id="questionPrompt" class="text-lg sm:text-2xl font-extrabold text-white max-w-3xl mx-auto">...</h2>
+      </div>
+
+      <div id="answersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4"></div>
+
+      <div id="feedbackBanner" class="hidden glass-panel rounded-2xl p-4 sm:p-5 border border-white/20 animate-pop-in">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="feedbackTitle" class="text-lg font-black"></span>
+              <span id="feedbackPointsPill" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/15"></span>
+            </div>
+            <p id="feedbackExplanation" class="text-xs sm:text-sm text-purple-100/90 mt-1"></p>
+          </div>
+          <button id="nextQuestionBtn" type="button" class="px-6 py-3 rounded-2xl font-extrabold text-sm bg-[#ff2a85] text-white cursor-pointer shrink-0">Câu tiếp theo →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SUMMARY VIEW -->
+    <section id="summaryView" class="hidden animate-pop-in space-y-6">
+      <div class="glass-panel rounded-3xl p-6 sm:p-8 text-center space-y-4">
+        <div id="summaryTrophy" class="text-5xl sm:text-6xl">🏆</div>
+        <h2 id="summaryHeadline" class="text-2xl sm:text-4xl font-black text-white">Hoàn thành lượt chơi!</h2>
+        <p id="summarySubtext" class="text-sm sm:text-base text-purple-200/80"></p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          <div class="rounded-2xl bg-white/10 p-3.5">
+            <div class="text-[11px] uppercase text-purple-200/75 font-bold">Tổng điểm</div>
+            <div id="finalScoreText" class="text-xl sm:text-2xl font-black text-[#ffd000] mt-1">0</div>
+          </div>
+          <div class="rounded-2xl bg-white/10 p-3.5">
+            <div class="text-[11px] uppercase text-purple-200/75 font-bold">Chính xác</div>
+            <div id="finalAccuracyText" class="text-xl sm:text-2xl font-black text-emerald-300 mt-1">0%</div>
+          </div>
+          <div class="rounded-2xl bg-white/10 p-3.5">
+            <div class="text-[11px] uppercase text-purple-200/75 font-bold">Max Streak</div>
+            <div id="finalMaxStreakText" class="text-xl sm:text-2xl font-black text-[#ff7ab5] mt-1">0🔥</div>
+          </div>
+          <div class="rounded-2xl bg-white/10 p-3.5">
+            <div class="text-[11px] uppercase text-purple-200/75 font-bold">Đúng / Sai</div>
+            <div id="finalRightWrongText" class="text-xl sm:text-2xl font-black text-white mt-1">0 / 0</div>
+          </div>
         </div>
 
-        <div id="reviewList" class="space-y-3.5">
-          <!-- Populated dynamically -->
+        <div class="pt-3 flex flex-wrap items-center justify-center gap-3">
+          <button id="practiceMistakesBtn" type="button" class="hidden px-5 py-3 rounded-2xl font-extrabold text-sm bg-amber-400 text-[#1e0929] cursor-pointer">🎯 Ôn lại câu sai</button>
+          <button id="playAgainBtn" type="button" class="px-6 py-3 rounded-2xl font-extrabold text-sm bg-[#ff2a85] text-white cursor-pointer">↻ Chơi lại</button>
+          <button id="loadNewCodeBtn" type="button" class="px-5 py-3 rounded-2xl font-extrabold text-sm bg-[#ffd000] text-[#1e0929] cursor-pointer">📋 Đẩy bộ đề mới</button>
+          <button id="backToLobbyBtn" type="button" class="px-5 py-3 rounded-2xl font-bold text-sm bg-white/10 border border-white/15 cursor-pointer">Về trang chủ</button>
         </div>
+      </div>
+
+      <div class="glass-panel rounded-3xl p-5 sm:p-7 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-extrabold">🔍 Xem lại đáp án</h3>
+          <span id="reviewSummaryCount" class="text-xs sm:text-sm font-bold text-[#ffd000]"></span>
+        </div>
+        <div id="reviewList" class="space-y-3.5"></div>
       </div>
     </section>
   </main>
 
-  <!-- ==================== DRAWER / MODAL: NHẬP & QUẢN LÝ CÂU HỎI ==================== -->
-  <div id="builderOverlay" class="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm hidden transition-opacity"></div>
-
-  <aside
-    id="builderDrawer"
-    class="fixed top-0 right-0 z-50 h-full w-full max-w-2xl bg-[#1e0929] border-l border-white/15 shadow-2xl transform translate-x-full transition-transform duration-300 ease-out flex flex-col"
-    aria-labelledby="builderTitle"
-    role="dialog"
-    aria-modal="true"
-  >
-    <!-- Drawer Header -->
-    <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#2e0f3d]">
-      <div>
-        <h2 id="builderTitle" class="text-lg sm:text-xl font-black text-white">
-          Nhập &amp; Quản Lý Bộ Đề
-        </h2>
-        <p class="text-xs text-purple-200/75">Đẩy sang bộ đề mới để giữ nguyên các đề cũ trên Firebase</p>
-      </div>
-      <button
-        id="closeBuilderBtn"
-        type="button"
-        class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold text-lg transition cursor-pointer"
-        aria-label="Đóng"
-      >
-        ✕
-      </button>
+  <!-- DRAWER -->
+  <div id="builderOverlay" class="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm hidden"></div>
+  <aside id="builderDrawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-2xl bg-[#1e0929] border-l border-white/15 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-[#2e0f3d]">
+      <h2 id="builderTitle" class="text-lg font-black">Nhập &amp; Quản Lý Bộ Đề</h2>
+      <button id="closeBuilderBtn" type="button" class="w-10 h-10 rounded-xl bg-white/10 font-bold cursor-pointer">✕</button>
     </div>
 
-    <!-- Drawer Tabs -->
-    <div class="px-5 pt-3 pb-2.5 border-b border-white/10 bg-[#250c32] flex flex-wrap items-center justify-between gap-2">
+    <div class="px-5 py-2.5 border-b border-white/10 bg-[#250c32] flex flex-wrap items-center justify-between gap-2">
       <div class="inline-flex rounded-xl bg-black/40 p-1 border border-white/10">
-        <button
-          id="tabBulkMode"
-          type="button"
-          class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold bg-[#ff2a85] text-white transition cursor-pointer"
-        >
-          1. Dán mã nhanh (JSON / Text)
-        </button>
-        <button
-          id="tabFormMode"
-          type="button"
-          class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-purple-200/80 hover:text-white transition cursor-pointer"
-        >
-          2. Tạo / Sửa thủ công
-        </button>
+        <button id="tabBulkMode" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-[#ff2a85] text-white cursor-pointer">1. Dán mã nhanh</button>
+        <button id="tabFormMode" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-purple-200 cursor-pointer">2. Tạo / Sửa thủ công</button>
       </div>
-
-      <button
-        id="drawerClearCurrentSetBtn"
-        type="button"
-        class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 transition cursor-pointer"
-      >
-        🗑️ Xóa câu hỏi đề này
-      </button>
+      <button id="drawerClearCurrentSetBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/15 text-rose-200 border border-rose-400/30 cursor-pointer">🗑️ Xóa câu hỏi đề này</button>
     </div>
 
-    <!-- Drawer Scrollable Body -->
     <div class="flex-1 overflow-y-auto p-5 space-y-5">
-
-      <!-- TAB 1: BLANK PASTE AREA -->
       <div id="bulkModePanel" class="space-y-4">
         <div class="rounded-2xl bg-[#2e0f3d]/90 border border-white/12 p-4 space-y-3">
-          <!-- Target Set Name Input (New or Existing) -->
-          <div class="space-y-1.5">
-            <label for="targetSetNameInput" class="block text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
-              Tên bộ đề đích (nhập tên mới để tạo đề riêng, giữ nguyên đề cũ)
-            </label>
-            <input
-              id="targetSetNameInput"
-              type="text"
-              placeholder="Ví dụ: Đề 2 - Toán hoặc để trống để dùng bộ đề đang chọn..."
-              class="w-full rounded-xl bg-black/45 border border-white/15 focus:border-[#ffd000] px-3.5 py-2 text-xs sm:text-sm font-bold text-white placeholder-purple-300/45 outline-none"
-            />
+          <input id="targetSetNameInput" type="text" placeholder="Tên bộ đề đích (để trống nếu dùng bộ đề hiện tại)..." class="w-full rounded-xl bg-black/45 border border-white/15 px-3.5 py-2 text-xs sm:text-sm font-bold text-white outline-none" />
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-[#ffd000]">Dán JSON hoặc văn bản câu hỏi</span>
+            <button id="clearTextareaBtn" type="button" class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 cursor-pointer">🧹 Xóa ô nhập</button>
           </div>
-
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <label for="bulkPasteTextarea" class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
-              Dán mã câu hỏi vào ô trống bên dưới
-            </label>
-            <button
-              id="clearTextareaBtn"
-              type="button"
-              class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-purple-100 transition cursor-pointer"
-            >
-              🧹 Xóa ô nhập
-            </button>
-          </div>
-
-          <textarea
-            id="bulkPasteTextarea"
-            rows="11"
-            class="w-full rounded-xl bg-black/45 border border-white/15 focus:border-[#ff2a85] focus:ring-2 focus:ring-[#ff2a85]/30 px-3.5 py-3 text-xs sm:text-[13px] font-mono text-white placeholder-purple-300/45 outline-none leading-relaxed"
-            placeholder='Dán mảng JSON tại đây, ví dụ:
-[
-  {
-    "question": "Nội dung câu hỏi...",
-    "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-    "correctIndex": 0,
-    "timeLimit": 20,
-    "explanation": "Giải thích (tùy chọn)"
-  }
-]
-
-Hoặc dán dạng văn bản:
-Câu 1: Nội dung câu hỏi?
-*A. Đáp án đúng (thêm dấu * trước đáp án đúng)
-B. Đáp án nhiễu 1
-C. Đáp án nhiễu 2
-D. Đáp án nhiễu 3
-Giải thích: Lý do...'
-          ></textarea>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-            <button
-              id="saveAsNewSetBtn"
-              type="button"
-              class="py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-[#ff2a85] hover:bg-[#ff4294] text-white shadow-lg shadow-[#ff2a85]/25 transition cursor-pointer"
-            >
-              💾 Lưu thành bộ đề riêng (Giữ đề cũ)
-            </button>
-            <button
-              id="appendImportBtn"
-              type="button"
-              class="py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-white/10 hover:bg-white/15 border border-white/15 text-white transition cursor-pointer"
-            >
-              ➕ Nạp thêm vào bộ đề đích
-            </button>
+          <textarea id="bulkPasteTextarea" rows="10" class="w-full rounded-xl bg-black/45 border border-white/15 px-3.5 py-3 text-xs font-mono text-white outline-none"></textarea>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button id="saveAsNewSetBtn" type="button" class="py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-[#ff2a85] text-white cursor-pointer">💾 Lưu thành bộ đề riêng</button>
+            <button id="appendImportBtn" type="button" class="py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-white/10 border border-white/15 text-white cursor-pointer">➕ Nạp thêm vào bộ đề đích</button>
           </div>
         </div>
-
-        <!-- Compact List of Loaded Questions in Active Set -->
-        <div class="rounded-2xl bg-[#2e0f3d]/70 border border-white/10 p-4 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-purple-200/80">
-              Câu hỏi trong bộ đề đang chọn (<span id="bulkLoadedCount">0</span>)
-            </span>
-          </div>
-          <div id="bulkLoadedList" class="space-y-2 max-h-52 overflow-y-auto pr-1">
-            <!-- Populated dynamically -->
-          </div>
+        <div class="rounded-2xl bg-[#2e0f3d]/70 border border-white/10 p-4 space-y-2">
+          <span class="text-xs font-extrabold text-purple-200/80 block">Câu hỏi trong đề (<span id="bulkLoadedCount">0</span>)</span>
+          <div id="bulkLoadedList" class="space-y-2 max-h-48 overflow-y-auto"></div>
         </div>
       </div>
 
-      <!-- TAB 2: MANUAL VISUAL FORM -->
       <div id="formModePanel" class="hidden space-y-4">
-        <div class="rounded-2xl bg-[#2e0f3d]/90 border border-white/12 p-4 sm:p-5 space-y-4">
-          <div class="flex items-center justify-between gap-2">
-            <span id="formHeaderTitle" class="text-xs font-extrabold uppercase tracking-wider text-[#ffd000]">
-              Thêm câu hỏi vào bộ đề hiện tại
-            </span>
-            <button
-              id="resetFormFieldsBtn"
-              type="button"
-              class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/15 text-purple-100 transition cursor-pointer"
-            >
-              + Soạn câu mới trống
-            </button>
+        <div class="rounded-2xl bg-[#2e0f3d]/90 border border-white/12 p-4 sm:p-5 space-y-3.5">
+          <div class="flex items-center justify-between">
+            <span id="formHeaderTitle" class="text-xs font-extrabold text-[#ffd000]">Thêm câu hỏi</span>
+            <button id="resetFormFieldsBtn" type="button" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 cursor-pointer">+ Câu mới</button>
           </div>
-
-          <div>
-            <label for="qPromptInput" class="block text-xs font-bold text-purple-100 mb-1.5">
-              Nội dung câu hỏi *
-            </label>
-            <textarea
-              id="qPromptInput"
-              rows="2"
-              placeholder="Nhập câu hỏi của bạn..."
-              class="w-full rounded-xl bg-black/40 border border-white/15 focus:border-[#ff2a85] px-3.5 py-2.5 text-sm text-white placeholder-purple-300/40 outline-none"
-            ></textarea>
+          <textarea id="qPromptInput" rows="2" placeholder="Nội dung câu hỏi *" class="w-full rounded-xl bg-black/40 border border-white/15 px-3.5 py-2 text-sm text-white outline-none"></textarea>
+          <div class="grid grid-cols-2 gap-3">
+            <select id="qCorrectSelect" class="rounded-xl bg-black/50 border border-emerald-400/45 px-3 py-2 text-sm font-bold text-emerald-200 outline-none">
+              <option value="0">Đáp án đúng: A</option>
+              <option value="1">Đáp án đúng: B</option>
+              <option value="2">Đáp án đúng: C</option>
+              <option value="3">Đáp án đúng: D</option>
+            </select>
+            <input id="qTimeInput" type="number" min="5" max="120" value="20" class="rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-sm text-white outline-none" />
           </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label for="qCorrectSelect" class="block text-xs font-bold text-purple-100 mb-1.5">
-                Chọn 1 đáp án đúng *
-              </label>
-              <select
-                id="qCorrectSelect"
-                class="w-full rounded-xl bg-black/50 border border-emerald-400/45 px-3.5 py-2 text-sm font-bold text-emerald-200 outline-none"
-              >
-                <option value="0">Đáp án A (Thẻ Đỏ ▲)</option>
-                <option value="1">Đáp án B (Thẻ Xanh dương ◆)</option>
-                <option value="2">Đáp án C (Thẻ Vàng ●)</option>
-                <option value="3">Đáp án D (Thẻ Xanh lá ■)</option>
-              </select>
-            </div>
-
-            <div>
-              <label for="qTimeInput" class="block text-xs font-bold text-purple-100 mb-1.5">
-                Thời gian trả lời (giây)
-              </label>
-              <input
-                id="qTimeInput"
-                type="number"
-                min="5"
-                max="120"
-                value="20"
-                class="w-full rounded-xl bg-black/40 border border-white/15 focus:border-[#ff2a85] px-3.5 py-2 text-sm text-white outline-none"
-              />
-            </div>
+          <div class="space-y-2">
+            <input id="qOpt0" type="text" placeholder="Đáp án A *" class="w-full rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-sm text-white outline-none" />
+            <input id="qOpt1" type="text" placeholder="Đáp án B *" class="w-full rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-sm text-white outline-none" />
+            <input id="qOpt2" type="text" placeholder="Đáp án C *" class="w-full rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-sm text-white outline-none" />
+            <input id="qOpt3" type="text" placeholder="Đáp án D *" class="w-full rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-sm text-white outline-none" />
           </div>
-
-          <!-- 4 Choices A/B/C/D -->
-          <div class="space-y-2.5">
-            <span class="block text-xs font-bold text-purple-100">4 Lựa chọn A / B / C / D *</span>
-
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-lg bg-[#e21b3c] text-white font-black text-xs flex items-center justify-center shrink-0">A</span>
-              <input id="qOpt0" type="text" placeholder="Nhập đáp án A..." class="flex-1 rounded-xl bg-black/40 border border-white/15 focus:border-[#e21b3c] px-3 py-2 text-sm text-white outline-none" />
-            </div>
-
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-lg bg-[#1368ce] text-white font-black text-xs flex items-center justify-center shrink-0">B</span>
-              <input id="qOpt1" type="text" placeholder="Nhập đáp án B..." class="flex-1 rounded-xl bg-black/40 border border-white/15 focus:border-[#1368ce] px-3 py-2 text-sm text-white outline-none" />
-            </div>
-
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-lg bg-[#d89e00] text-white font-black text-xs flex items-center justify-center shrink-0">C</span>
-              <input id="qOpt2" type="text" placeholder="Nhập đáp án C..." class="flex-1 rounded-xl bg-black/40 border border-white/15 focus:border-[#d89e00] px-3 py-2 text-sm text-white outline-none" />
-            </div>
-
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-lg bg-[#26890c] text-white font-black text-xs flex items-center justify-center shrink-0">D</span>
-              <input id="qOpt3" type="text" placeholder="Nhập đáp án D..." class="flex-1 rounded-xl bg-black/40 border border-white/15 focus:border-[#26890c] px-3 py-2 text-sm text-white outline-none" />
-            </div>
-          </div>
-
-          <div>
-            <label for="qExplainInput" class="block text-xs font-bold text-purple-100 mb-1.5">
-              Giải thích (tùy chọn)
-            </label>
-            <textarea
-              id="qExplainInput"
-              rows="2"
-              placeholder="Ghi chú giải thích hiển thị sau khi chọn đáp án..."
-              class="w-full rounded-xl bg-black/40 border border-white/15 focus:border-[#ff2a85] px-3.5 py-2 text-sm text-white placeholder-purple-300/40 outline-none"
-            ></textarea>
-          </div>
-
-          <button
-            id="saveManualQuestionBtn"
-            type="button"
-            class="w-full py-3 rounded-xl font-extrabold text-sm bg-gradient-to-r from-[#ff2a85] to-[#8b1ec4] hover:brightness-110 text-white shadow-md transition cursor-pointer"
-          >
-            💾 Lưu câu hỏi vào bộ đề hiện tại
-          </button>
+          <textarea id="qExplainInput" rows="2" placeholder="Giải thích (tùy chọn)" class="w-full rounded-xl bg-black/40 border border-white/15 px-3.5 py-2 text-sm text-white outline-none"></textarea>
+          <button id="saveManualQuestionBtn" type="button" class="w-full py-3 rounded-xl font-extrabold text-sm bg-gradient-to-r from-[#ff2a85] to-[#8b1ec4] text-white cursor-pointer">💾 Lưu câu hỏi</button>
         </div>
-
-        <!-- Loaded questions list in Manual Tab -->
-        <div class="rounded-2xl bg-[#2e0f3d]/70 border border-white/10 p-4 space-y-2.5">
-          <span class="text-xs font-extrabold uppercase tracking-wider text-purple-200/80 block">
-            Danh sách câu hỏi hiện có (<span id="formLoadedCount">0</span>)
-          </span>
-          <div id="formLoadedList" class="space-y-2 max-h-52 overflow-y-auto pr-1">
-            <!-- Populated dynamically -->
-          </div>
+        <div class="rounded-2xl bg-[#2e0f3d]/70 border border-white/10 p-4 space-y-2">
+          <span class="text-xs font-extrabold text-purple-200/80 block">Danh sách câu hỏi (<span id="formLoadedCount">0</span>)</span>
+          <div id="formLoadedList" class="space-y-2 max-h-48 overflow-y-auto"></div>
         </div>
       </div>
     </div>
 
-    <!-- Drawer Footer -->
-    <div class="px-5 py-3.5 border-t border-white/10 bg-[#2e0f3d] flex items-center justify-between gap-3">
-      <span class="text-xs text-purple-200/85 font-semibold">
-        Đề hiện tại có <strong id="drawerTotalCount" class="text-[#ffd000]">0</strong> câu hỏi
-      </span>
-      <button
-        id="playFromDrawerBtn"
-        type="button"
-        disabled
-        class="px-5 py-2.5 rounded-xl font-extrabold text-sm transition disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-white/10 bg-[#ff2a85] hover:bg-[#ff4294] text-white shadow-md cursor-pointer"
-      >
-        ▶ Bắt đầu chơi ngay
-      </button>
+    <div class="px-5 py-3.5 border-t border-white/10 bg-[#2e0f3d] flex items-center justify-between">
+      <span class="text-xs font-semibold">Đề hiện tại: <strong id="drawerTotalCount" class="text-[#ffd000]">0</strong> câu</span>
+      <button id="playFromDrawerBtn" type="button" disabled class="px-5 py-2.5 rounded-xl font-extrabold text-sm disabled:opacity-45 bg-[#ff2a85] text-white cursor-pointer">▶ Chơi ngay</button>
     </div>
   </aside>
 
-  <script>
-    /**
-     * Quizizz Mini / Trắc Nghiệm Tương Tác
-     * Multi-Set Firebase Realtime Database Edition:
-     * Stores separate quiz sets under /quizizz_mini/quiz_sets.json
-     * while migrating legacy /quizizz_mini/shared_questions.json if present.
-     */
-
-    const FIREBASE_DB_URL = 'https://quizizz-mini-shared-e3865-default-rtdb.asia-southeast1.firebasedatabase.app';
-    const FIREBASE_SETS_PATH = '/quizizz_mini/quiz_sets.json';
-    const FIREBASE_LEGACY_PATH = '/quizizz_mini/shared_questions.json';
-    const LOCAL_CACHE_KEY = 'quizizz_mini_sets_cache_v1';
-
-    // =========================================================================
-    // 1. WEB AUDIO API SOUND ENGINE
-    // =========================================================================
-    const SoundEngine = (() => {
-      let audioCtx = null;
-      let enabled = true;
-
-      function getContext() {
-        if (!enabled) return null;
-        try {
-          if (!audioCtx) {
-            const Ctx = window.AudioContext || window.webkitAudioContext;
-            if (Ctx) audioCtx = new Ctx();
-          }
-          if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume();
-          }
-          return audioCtx;
-        } catch (e) {
-          return null;
-        }
-      }
-
-      function tone(freq, duration, type = 'sine', delay = 0, peak = 0.14) {
-        const ctx = getContext();
-        if (!ctx) return;
-        try {
-          const t0 = ctx.currentTime + delay;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = type;
-          osc.frequency.setValueAtTime(freq, t0);
-
-          gain.gain.setValueAtTime(0.0001, t0);
-          gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.015);
-          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(t0);
-          osc.stop(t0 + duration + 0.02);
-        } catch (e) {
-          // Ignore audio restrictions
-        }
-      }
-
-      return {
-        isEnabled: () => enabled,
-        setEnabled: (v) => {
-          enabled = Boolean(v);
-          if (enabled) getContext();
-        },
-        click: () => tone(540, 0.06, 'triangle', 0, 0.08),
-        tick: (urgent = false) => tone(urgent ? 920 : 660, 0.055, 'sine', 0, urgent ? 0.11 : 0.05),
-        correct: (streak = 1) => {
-          const lift = Math.min(streak - 1, 6) * 40;
-          tone(523.25 + lift, 0.12, 'triangle', 0, 0.15);
-          tone(659.25 + lift, 0.12, 'triangle', 0.08, 0.15);
-          tone(783.99 + lift, 0.24, 'triangle', 0.16, 0.17);
-        },
-        wrong: () => {
-          tone(240, 0.18, 'sawtooth', 0, 0.11);
-          tone(175, 0.28, 'sawtooth', 0.14, 0.11);
-        },
-        timeout: () => {
-          tone(300, 0.15, 'square', 0, 0.08);
-          tone(210, 0.24, 'square', 0.14, 0.08);
-        },
-        victory: () => {
-          [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((n, i) => {
-            tone(n, i === 4 ? 0.42 : 0.13, 'triangle', i * 0.1, 0.15);
-          });
-        }
-      };
-    })();
-
-    // =========================================================================
-    // 2. MULTI-SET STORAGE & FIREBASE SYNC
-    // =========================================================================
-    function sanitizeQuestions(rawList) {
-      if (!Array.isArray(rawList)) return [];
-      return rawList
-        .filter(q => q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4)
-        .map((q, idx) => ({
-          id: q.id || `q-${idx}-${Date.now()}`,
-          question: String(q.question).trim(),
-          options: q.options.map(o => String(o || '').trim()),
-          correctIndex: Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex <= 3
-            ? q.correctIndex
-            : 0,
-          timeLimit: Number.isFinite(Number(q.timeLimit))
-            ? Math.max(5, Math.min(120, Math.round(Number(q.timeLimit))))
-            : 20,
-          explanation: String(q.explanation || '').trim()
-        }))
-        .filter(q => q.question && q.options.every(Boolean));
-    }
-
-    function createDefaultSet(name = 'Đề 1') {
-      return {
-        id: `set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: name.trim() || 'Đề 1',
-        questions: [],
-        updatedAt: Date.now()
-      };
-    }
-
-    function normalizeSetsPayload(rawSets) {
-      if (!Array.isArray(rawSets)) return [];
-      return rawSets
-        .filter(s => s && typeof s === 'object')
-        .map((s, idx) => ({
-          id: String(s.id || `set-${idx}-${Date.now()}`),
-          name: String(s.name || `Đề ${idx + 1}`).trim() || `Đề ${idx + 1}`,
-          questions: sanitizeQuestions(s.questions),
-          updatedAt: Number(s.updatedAt) || Date.now()
-        }));
-    }
-
-    function loadLocalCache() {
-      try {
-        const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-        if (!raw) return { sets: [], activeSetId: '' };
-        const parsed = JSON.parse(raw);
-        const sets = normalizeSetsPayload(parsed.sets);
-        const activeSetId = sets.some(s => s.id === parsed.activeSetId)
-          ? parsed.activeSetId
-          : (sets[0]?.id || '');
-        return { sets, activeSetId };
-      } catch (e) {
-        return { sets: [], activeSetId: '' };
-      }
-    }
-
-    function saveLocalCache(sets, activeSetId) {
-      try {
-        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ sets, activeSetId }));
-      } catch (e) {
-        // Ignore storage quota errors
-      }
-    }
-
-    async function fetchJsonNode(path) {
-      const res = await fetch(`${FIREBASE_DB_URL}${path}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
-
-    async function pushSetsToFirebase(sets) {
-      const cleanSets = normalizeSetsPayload(sets);
-      const res = await fetch(`${FIREBASE_DB_URL}${FIREBASE_SETS_PATH}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanSets)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return cleanSets;
-    }
-
-    const cached = loadLocalCache();
-    const initialSets = cached.sets.length > 0 ? cached.sets : [createDefaultSet('Đề 1')];
-
-    const state = {
-      sets: initialSets,
-      activeSetId: cached.activeSetId || initialSets[0].id,
-      syncStatus: 'loading', // 'loading' | 'synced' | 'offline'
-      view: 'lobby', // 'lobby' | 'game' | 'summary'
-      // Gameplay
-      deck: [],
-      currentIndex: 0,
-      score: 0,
-      streak: 0,
-      maxStreak: 0,
-      answeredCurrent: false,
-      timeLeft: 20,
-      currentTimeLimit: 20,
-      timerInterval: null,
-      history: [],
-      // Drawer / Editor
-      drawerTab: 'bulk', // 'bulk' | 'form'
-      editingIndex: null
-    };
-
-    function getActiveSet() {
-      let found = state.sets.find(s => s.id === state.activeSetId);
-      if (!found) {
-        if (state.sets.length === 0) {
-          found = createDefaultSet('Đề 1');
-          state.sets.push(found);
-        } else {
-          found = state.sets[0];
-        }
-        state.activeSetId = found.id;
-      }
-      return found;
-    }
-
-    function getActiveQuestions() {
-      return getActiveSet().questions;
-    }
-
-    async function persistAllSets(nextSets = null, nextActiveId = null) {
-      if (Array.isArray(nextSets)) {
-        state.sets = nextSets.length > 0 ? normalizeSetsPayload(nextSets) : [createDefaultSet('Đề 1')];
-      }
-      if (nextActiveId && state.sets.some(s => s.id === nextActiveId)) {
-        state.activeSetId = nextActiveId;
-      } else if (!state.sets.some(s => s.id === state.activeSetId)) {
-        state.activeSetId = state.sets[0].id;
-      }
-
-      saveLocalCache(state.sets, state.activeSetId);
-      syncAllUI();
-
-      try {
-        await pushSetsToFirebase(state.sets);
-        state.syncStatus = 'synced';
-        updateSyncBadge();
-        return true;
-      } catch (err) {
-        console.warn('Lỗi đẩy bộ đề lên Firebase:', err);
-        state.syncStatus = 'offline';
-        updateSyncBadge();
-        showToast('Đã lưu tạm trên máy, chưa đồng bộ được lên Firebase.', 'error');
-        return false;
-      }
-    }
-
-    async function loadSetsFromCloud() {
-      state.syncStatus = 'loading';
-      updateSyncBadge();
-      try {
-        const cloudRaw = await fetchJsonNode(FIREBASE_SETS_PATH);
-        let cloudSets = normalizeSetsPayload(
-          Array.isArray(cloudRaw) ? cloudRaw : (cloudRaw && typeof cloudRaw === 'object' ? Object.values(cloudRaw) : [])
-        );
-
-        // Migrate legacy single-list questions if quiz_sets hasn't been created yet
-        if (cloudSets.length === 0) {
-          const legacyRaw = await fetchJsonNode(FIREBASE_LEGACY_PATH);
-          const legacyQuestions = sanitizeQuestions(
-            Array.isArray(legacyRaw) ? legacyRaw : (legacyRaw && typeof legacyRaw === 'object' ? Object.values(legacyRaw) : [])
-          );
-          if (legacyQuestions.length > 0) {
-            const migrated = createDefaultSet('Đề 1');
-            migrated.questions = legacyQuestions;
-            cloudSets = [migrated];
-            await pushSetsToFirebase(cloudSets);
-          }
-        }
-
-        if (cloudSets.length > 0) {
-          state.sets = cloudSets;
-          if (!state.sets.some(s => s.id === state.activeSetId)) {
-            state.activeSetId = state.sets[0].id;
-          }
-          saveLocalCache(state.sets, state.activeSetId);
-        }
-
-        state.syncStatus = 'synced';
-        syncAllUI();
-        return true;
-      } catch (err) {
-        console.warn('Không tải được từ Firebase, dùng bản lưu cục bộ:', err);
-        state.syncStatus = 'offline';
-        syncAllUI();
-        return false;
-      }
-    }
-
-    // =========================================================================
-    // 3. DOM REFERENCES
-    // =========================================================================
-    const dom = {
-      toastContainer: document.getElementById('toastContainer'),
-      homeLogoBtn: document.getElementById('homeLogoBtn'),
-      soundToggleBtn: document.getElementById('soundToggleBtn'),
-      soundIcon: document.getElementById('soundIcon'),
-      soundLabel: document.getElementById('soundLabel'),
-      headerPasteBtn: document.getElementById('headerPasteBtn'),
-      headerCountPill: document.getElementById('headerCountPill'),
-
-      // Views
-      lobbyView: document.getElementById('lobbyView'),
-      gameView: document.getElementById('gameView'),
-      summaryView: document.getElementById('summaryView'),
-
-      // Lobby & Set Switcher
-      lobbyStatusDot: document.getElementById('lobbyStatusDot'),
-      lobbyStatusBadge: document.getElementById('lobbyStatusBadge'),
-      cloudSyncBadge: document.getElementById('cloudSyncBadge'),
-      activeSetTitleDisplay: document.getElementById('activeSetTitleDisplay'),
-      deleteCurrentSetBtn: document.getElementById('deleteCurrentSetBtn'),
-      totalSetsCount: document.getElementById('totalSetsCount'),
-      quizSetSelect: document.getElementById('quizSetSelect'),
-      quickNewSetBtn: document.getElementById('quickNewSetBtn'),
-      renameSetBtn: document.getElementById('renameSetBtn'),
-      renameSetBox: document.getElementById('renameSetBox'),
-      renameSetInput: document.getElementById('renameSetInput'),
-      confirmRenameSetBtn: document.getElementById('confirmRenameSetBtn'),
-      lobbyPasteCodeBtn: document.getElementById('lobbyPasteCodeBtn'),
-      lobbyManualCreateBtn: document.getElementById('lobbyManualCreateBtn'),
-      shuffleQuestionsCheckbox: document.getElementById('shuffleQuestionsCheckbox'),
-      shuffleOptionsCheckbox: document.getElementById('shuffleOptionsCheckbox'),
-      startGameBtn: document.getElementById('startGameBtn'),
-      startGameBtnLabel: document.getElementById('startGameBtnLabel'),
-      lobbyListSummary: document.getElementById('lobbyListSummary'),
-      lobbyQuestionsContainer: document.getElementById('lobbyQuestionsContainer'),
-
-      // Gameplay
-      currentQNum: document.getElementById('currentQNum'),
-      totalQNum: document.getElementById('totalQNum'),
-      streakBadge: document.getElementById('streakBadge'),
-      streakCount: document.getElementById('streakCount'),
-      liveScore: document.getElementById('liveScore'),
-      timerPill: document.getElementById('timerPill'),
-      timerText: document.getElementById('timerText'),
-      timerBar: document.getElementById('timerBar'),
-      questionPrompt: document.getElementById('questionPrompt'),
-      answersGrid: document.getElementById('answersGrid'),
-      feedbackBanner: document.getElementById('feedbackBanner'),
-      feedbackTitle: document.getElementById('feedbackTitle'),
-      feedbackPointsPill: document.getElementById('feedbackPointsPill'),
-      feedbackExplanation: document.getElementById('feedbackExplanation'),
-      nextQuestionBtn: document.getElementById('nextQuestionBtn'),
-
-      // Summary
-      summaryTrophy: document.getElementById('summaryTrophy'),
-      summaryHeadline: document.getElementById('summaryHeadline'),
-      summarySubtext: document.getElementById('summarySubtext'),
-      finalScoreText: document.getElementById('finalScoreText'),
-      finalAccuracyText: document.getElementById('finalAccuracyText'),
-      finalMaxStreakText: document.getElementById('finalMaxStreakText'),
-      finalRightWrongText: document.getElementById('finalRightWrongText'),
-      playAgainBtn: document.getElementById('playAgainBtn'),
-      loadNewCodeBtn: document.getElementById('loadNewCodeBtn'),
-      backToLobbyBtn: document.getElementById('backToLobbyBtn'),
-      reviewSummaryCount: document.getElementById('reviewSummaryCount'),
-      reviewList: document.getElementById('reviewList'),
-
-      // Drawer
-      builderOverlay: document.getElementById('builderOverlay'),
-      builderDrawer: document.getElementById('builderDrawer'),
-      closeBuilderBtn: document.getElementById('closeBuilderBtn'),
-      tabBulkMode: document.getElementById('tabBulkMode'),
-      tabFormMode: document.getElementById('tabFormMode'),
-      drawerClearCurrentSetBtn: document.getElementById('drawerClearCurrentSetBtn'),
-      bulkModePanel: document.getElementById('bulkModePanel'),
-      formModePanel: document.getElementById('formModePanel'),
-      targetSetNameInput: document.getElementById('targetSetNameInput'),
-      clearTextareaBtn: document.getElementById('clearTextareaBtn'),
-      bulkPasteTextarea: document.getElementById('bulkPasteTextarea'),
-      saveAsNewSetBtn: document.getElementById('saveAsNewSetBtn'),
-      appendImportBtn: document.getElementById('appendImportBtn'),
-      bulkLoadedCount: document.getElementById('bulkLoadedCount'),
-      bulkLoadedList: document.getElementById('bulkLoadedList'),
-
-      // Manual Form
-      formHeaderTitle: document.getElementById('formHeaderTitle'),
-      resetFormFieldsBtn: document.getElementById('resetFormFieldsBtn'),
-      qPromptInput: document.getElementById('qPromptInput'),
-      qCorrectSelect: document.getElementById('qCorrectSelect'),
-      qTimeInput: document.getElementById('qTimeInput'),
-      qOpt0: document.getElementById('qOpt0'),
-      qOpt1: document.getElementById('qOpt1'),
-      qOpt2: document.getElementById('qOpt2'),
-      qOpt3: document.getElementById('qOpt3'),
-      qExplainInput: document.getElementById('qExplainInput'),
-      saveManualQuestionBtn: document.getElementById('saveManualQuestionBtn'),
-      formLoadedCount: document.getElementById('formLoadedCount'),
-      formLoadedList: document.getElementById('formLoadedList'),
-      drawerTotalCount: document.getElementById('drawerTotalCount'),
-      playFromDrawerBtn: document.getElementById('playFromDrawerBtn')
-    };
-
-    // =========================================================================
-    // 4. UTILITIES & TOASTS
-    // =========================================================================
-    function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function showToast(message, type = 'info') {
-      const styles = {
-        success: 'bg-emerald-950/95 border-emerald-400/50 text-emerald-100',
-        error: 'bg-rose-950/95 border-rose-400/50 text-rose-100',
-        info: 'bg-[#2e0f3d]/95 border-[#ff2a85]/50 text-purple-100'
-      };
-      const icon = type === 'success' ? '✅' : type === 'error' ? '⚠️' : '✨';
-
-      const toast = document.createElement('div');
-      toast.className = `pointer-events-auto rounded-2xl border px-4 py-3 shadow-xl text-xs sm:text-sm font-bold flex items-center gap-2.5 animate-pop-in ${styles[type] || styles.info}`;
-      toast.innerHTML = `<span class="text-base shrink-0">${icon}</span><span class="flex-1">${escapeHtml(message)}</span>`;
-      dom.toastContainer.appendChild(toast);
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-6px)';
-        toast.style.transition = 'all 0.22s ease';
-        setTimeout(() => toast.remove(), 240);
-      }, 2600);
-    }
-
-    function shuffleArray(list) {
-      const copy = list.slice();
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
-      }
-      return copy;
-    }
-
-    // =========================================================================
-    // 5. LOBBY, SET MANAGEMENT & GLOBAL UI SYNC
-    // =========================================================================
-    function switchView(target) {
-      clearTimer();
-      state.view = target;
-      dom.lobbyView.classList.toggle('hidden', target !== 'lobby');
-      dom.gameView.classList.toggle('hidden', target !== 'game');
-      dom.summaryView.classList.toggle('hidden', target !== 'summary');
-      if (target === 'lobby') renderLobby();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function updateSyncBadge() {
-      if (!dom.cloudSyncBadge) return;
-      if (state.syncStatus === 'loading') {
-        dom.cloudSyncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/35 text-xs font-bold text-amber-200';
-        dom.cloudSyncBadge.textContent = '⏳ Đang đồng bộ Firebase...';
-      } else if (state.syncStatus === 'synced') {
-        dom.cloudSyncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-bold text-emerald-200';
-        dom.cloudSyncBadge.textContent = '☁️ Đã đồng bộ Firebase';
-      } else {
-        dom.cloudSyncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/35 text-xs font-bold text-rose-200';
-        dom.cloudSyncBadge.textContent = '📴 Đang dùng bản lưu cục bộ';
-      }
-    }
-
-    function renderSetSelector() {
-      const activeSet = getActiveSet();
-      dom.totalSetsCount.textContent = state.sets.length;
-      dom.activeSetTitleDisplay.textContent = activeSet.name;
-
-      dom.quizSetSelect.innerHTML = '';
-      state.sets.forEach((s, idx) => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = `${s.name} (${s.questions.length} câu)`;
-        if (s.id === activeSet.id) opt.selected = true;
-        dom.quizSetSelect.appendChild(opt);
-      });
-    }
-
-    function syncAllUI() {
-      const activeSet = getActiveSet();
-      const count = activeSet.questions.length;
-      const hasQuestions = count > 0;
-
-      renderSetSelector();
-      dom.headerCountPill.textContent = count;
-
-      if (state.syncStatus === 'loading' && !hasQuestions) {
-        dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-pulse';
-        dom.lobbyStatusBadge.textContent = 'Đang tải đề từ Firebase...';
-      } else if (hasQuestions) {
-        dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-        dom.lobbyStatusBadge.textContent = `${activeSet.name} • ${count} câu hỏi`;
-      } else {
-        dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-purple-300';
-        dom.lobbyStatusBadge.textContent = `${activeSet.name} • 0 câu hỏi`;
-      }
-
-      updateSyncBadge();
-
-      dom.startGameBtn.disabled = !hasQuestions;
-      dom.startGameBtnLabel.textContent = hasQuestions
-        ? `Bắt đầu chơi (${count} câu)`
-        : 'Bắt đầu chơi (0 câu)';
-
-      dom.bulkLoadedCount.textContent = count;
-      dom.formLoadedCount.textContent = count;
-      dom.drawerTotalCount.textContent = count;
-      dom.playFromDrawerBtn.disabled = !hasQuestions;
-
-      renderLobby();
-      renderDrawerQuestionLists();
-    }
-
-    function renderLobby() {
-      const questions = getActiveQuestions();
-      const activeSet = getActiveSet();
-      const count = questions.length;
-      dom.lobbyListSummary.textContent = `${count} câu hỏi`;
-
-      if (count === 0) {
-        dom.lobbyQuestionsContainer.innerHTML = `
-          <div class="rounded-2xl border-2 border-dashed border-white/15 bg-black/20 py-10 px-4 text-center space-y-2">
-            <div class="text-3xl">📭</div>
-            <p class="text-sm sm:text-base font-extrabold text-white">"${escapeHtml(activeSet.name)}" chưa có câu hỏi nào</p>
-            <p class="text-xs sm:text-sm text-purple-200/70 max-w-md mx-auto">
-              Bấm nút <strong>"Dán mã câu hỏi (JSON / Văn bản)"</strong> hoặc <strong>"Tạo câu hỏi thủ công"</strong> ở trên để thêm câu hỏi vào bộ đề này.
-            </p>
-          </div>
-        `;
-        return;
-      }
-
-      const listEl = document.createElement('div');
-      listEl.className = 'space-y-2.5 max-h-80 overflow-y-auto pr-1';
-
-      questions.forEach((q, idx) => {
-        const letters = ['A', 'B', 'C', 'D'];
-        const correctLetter = letters[q.correctIndex] || 'A';
-        const row = document.createElement('div');
-        row.className = 'rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 p-3.5 flex items-center justify-between gap-3 transition';
-        row.innerHTML = `
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider">
-              <span class="text-[#ff7ab5]">Câu ${idx + 1}</span>
-              <span class="text-purple-300/60">•</span>
-              <span class="text-[#ffd000]">${q.timeLimit || 20}s</span>
-              <span class="text-purple-300/60">•</span>
-              <span class="text-emerald-300">Đáp án ${correctLetter}</span>
-            </div>
-            <p class="text-xs sm:text-sm font-bold text-white truncate mt-0.5">${escapeHtml(q.question)}</p>
-          </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              data-action="edit"
-              class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-[#ffd000] hover:text-[#1e0929] text-xs font-bold transition cursor-pointer"
-            >
-              Sửa
-            </button>
-            <button
-              type="button"
-              data-action="delete"
-              class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/35 text-rose-200 text-xs font-bold transition cursor-pointer"
-            >
-              Xóa
-            </button>
-          </div>
-        `;
-
-        row.querySelector('[data-action="edit"]').addEventListener('click', () => {
-          SoundEngine.click();
-          openDrawer('form', idx);
-        });
-        row.querySelector('[data-action="delete"]').addEventListener('click', () => {
-          deleteQuestionAt(idx);
-        });
-
-        listEl.appendChild(row);
-      });
-
-      dom.lobbyQuestionsContainer.innerHTML = '';
-      dom.lobbyQuestionsContainer.appendChild(listEl);
-    }
-
-    async function createBlankQuizSet() {
-      SoundEngine.click();
-      const suggestedName = `Đề ${state.sets.length + 1}`;
-      const newSet = createDefaultSet(suggestedName);
-      const nextSets = state.sets.concat(newSet);
-      await persistAllSets(nextSets, newSet.id);
-      showToast(`Đã tạo "${newSet.name}". Hãy nạp câu hỏi cho đề này!`, 'success');
-    }
-
-    async function renameActiveSet() {
-      const nextName = dom.renameSetInput.value.trim();
-      if (!nextName) {
-        showToast('Nhập tên bộ đề trước khi lưu.', 'error');
-        dom.renameSetInput.focus();
-        return;
-      }
-      const nextSets = state.sets.map(s =>
-        s.id === state.activeSetId ? { ...s, name: nextName, updatedAt: Date.now() } : s
-      );
-      dom.renameSetBox.classList.add('hidden');
-      await persistAllSets(nextSets, state.activeSetId);
-      showToast(`Đã đổi tên thành "${nextName}".`, 'success');
-    }
-
-    async function deleteCurrentSet() {
-      SoundEngine.click();
-      const activeSet = getActiveSet();
-      const remaining = state.sets.filter(s => s.id !== activeSet.id);
-      if (remaining.length === 0) {
-        const fresh = createDefaultSet('Đề 1');
-        await persistAllSets([fresh], fresh.id);
-        showToast('Đã làm trống "Đề 1".', 'info');
-      } else {
-        await persistAllSets(remaining, remaining[0].id);
-        showToast(`Đã xóa bộ đề "${activeSet.name}". Các đề khác vẫn giữ nguyên!`, 'info');
-      }
-    }
-
-    async function clearCurrentSetQuestions() {
-      SoundEngine.click();
-      state.editingIndex = null;
-      resetManualFormFields();
-      const nextSets = state.sets.map(s =>
-        s.id === state.activeSetId ? { ...s, questions: [], updatedAt: Date.now() } : s
-      );
-      await persistAllSets(nextSets, state.activeSetId);
-      showToast('Đã xóa hết câu hỏi trong bộ đề hiện tại.', 'info');
-    }
-
-    async function deleteQuestionAt(idx) {
-      SoundEngine.click();
-      const activeSet = getActiveSet();
-      const updatedQuestions = activeSet.questions.slice();
-      updatedQuestions.splice(idx, 1);
-
-      if (state.editingIndex === idx) {
-        state.editingIndex = null;
-        resetManualFormFields();
-      } else if (state.editingIndex !== null && state.editingIndex > idx) {
-        state.editingIndex -= 1;
-      }
-
-      const nextSets = state.sets.map(s =>
-        s.id === activeSet.id ? { ...s, questions: updatedQuestions, updatedAt: Date.now() } : s
-      );
-      await persistAllSets(nextSets, activeSet.id);
-      showToast(`Đã xóa Câu #${idx + 1}.`, 'info');
-    }
-
-    // =========================================================================
-    // 6. QUIZIZZ GAMEPLAY ENGINE
-    // =========================================================================
-    const QUIZIZZ_CARDS = [
-      { cls: 'qz-card-red', shape: '▲', letter: 'A', key: '1 / A' },
-      { cls: 'qz-card-blue', shape: '◆', letter: 'B', key: '2 / B' },
-      { cls: 'qz-card-yellow', shape: '●', letter: 'C', key: '3 / C' },
-      { cls: 'qz-card-green', shape: '■', letter: 'D', key: '4 / D' }
-    ];
-
-    function startGame() {
-      const questions = getActiveQuestions();
-      if (questions.length === 0) {
-        showToast('Bộ đề này chưa có câu hỏi nào. Hãy dán mã hoặc tạo câu hỏi trước!', 'error');
-        return;
-      }
-
-      const shuffleQ = dom.shuffleQuestionsCheckbox.checked;
-      const shuffleOpt = dom.shuffleOptionsCheckbox.checked;
-
-      const orderedQuestions = shuffleQ ? shuffleArray(questions) : questions.slice();
-      state.deck = orderedQuestions.map(q => {
-        const pairs = q.options.map((text, origIdx) => ({
-          text,
-          isCorrect: origIdx === q.correctIndex
-        }));
-        return {
-          ...q,
-          shuffledOptions: shuffleOpt ? shuffleArray(pairs) : pairs
-        };
-      });
-
-      state.currentIndex = 0;
-      state.score = 0;
-      state.streak = 0;
-      state.maxStreak = 0;
-      state.answeredCurrent = false;
-      state.history = [];
-
-      switchView('game');
-      renderCurrentQuestion();
-    }
-
-    function clearTimer() {
-      if (state.timerInterval) {
-        clearInterval(state.timerInterval);
-        state.timerInterval = null;
-      }
-    }
-
-    function renderCurrentQuestion() {
-      clearTimer();
-      state.answeredCurrent = false;
-      dom.feedbackBanner.classList.add('hidden');
-
-      const qItem = state.deck[state.currentIndex];
-      const total = state.deck.length;
-
-      dom.currentQNum.textContent = state.currentIndex + 1;
-      dom.totalQNum.textContent = total;
-      dom.streakCount.textContent = state.streak;
-      dom.liveScore.textContent = state.score.toLocaleString('vi-VN');
-      dom.questionPrompt.textContent = qItem.question;
-
-      dom.nextQuestionBtn.textContent = state.currentIndex === total - 1
-        ? 'Xem tổng kết 🏆'
-        : 'Câu tiếp theo →';
-
-      dom.answersGrid.innerHTML = '';
-      qItem.shuffledOptions.forEach((optObj, idx) => {
-        const meta = QUIZIZZ_CARDS[idx % QUIZIZZ_CARDS.length];
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.dataset.optionIdx = String(idx);
-        btn.className = `qz-answer-card ${meta.cls} rounded-2xl p-4 sm:p-5 text-left text-white min-h-[104px] sm:min-h-[124px] flex items-center gap-3.5 sm:gap-4 cursor-pointer select-none focus:outline-none focus:ring-4 focus:ring-white/70`;
-
-        btn.innerHTML = `
-          <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-black/20 flex flex-col items-center justify-center shrink-0 font-black">
-            <span class="text-base sm:text-lg leading-none">${meta.shape}</span>
-            <span class="text-[10px] tracking-wider opacity-90 mt-0.5">${meta.letter}</span>
-          </div>
-          <div class="flex-1 text-sm sm:text-base md:text-[17px] font-extrabold leading-snug">
-            ${escapeHtml(optObj.text)}
-          </div>
-          <span class="hidden sm:inline-block text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-black/20 opacity-85 shrink-0">
-            ${meta.key}
-          </span>
-        `;
-
-        btn.addEventListener('click', () => handleSelectOption(idx));
-        dom.answersGrid.appendChild(btn);
-      });
-
-      state.currentTimeLimit = qItem.timeLimit || 20;
-      state.timeLeft = state.currentTimeLimit;
-      updateTimerDisplay();
-
-      state.timerInterval = setInterval(() => {
-        if (state.answeredCurrent) {
-          clearTimer();
-          return;
-        }
-        state.timeLeft = Math.max(0, Number((state.timeLeft - 0.1).toFixed(1)));
-        updateTimerDisplay();
-
-        const whole = Math.ceil(state.timeLeft);
-        if (Math.abs(state.timeLeft - whole) < 0.06 && whole > 0 && whole <= 5) {
-          SoundEngine.tick(true);
-        }
-
-        if (state.timeLeft <= 0) {
-          clearTimer();
-          handleTimeout();
-        }
-      }, 100);
-    }
-
-    function updateTimerDisplay() {
-      const sec = Math.ceil(state.timeLeft);
-      dom.timerText.textContent = sec;
-      const pct = Math.max(0, Math.min(100, (state.timeLeft / state.currentTimeLimit) * 100));
-      dom.timerBar.style.width = `${pct}%`;
-
-      const urgent = sec <= 5 && !state.answeredCurrent;
-      dom.timerPill.classList.toggle('timer-urgent', urgent);
-    }
-
-    function lockCards(selectedIdx, correctIdx) {
-      const btns = dom.answersGrid.querySelectorAll('button[data-option-idx]');
-      btns.forEach((btn, idx) => {
-        btn.disabled = true;
-        if (idx === correctIdx) {
-          btn.classList.add('ring-4', 'ring-white', 'scale-[1.02]');
-        } else if (idx === selectedIdx && idx !== correctIdx) {
-          btn.classList.add('opacity-90', 'animate-shake');
-        } else {
-          btn.classList.add('opacity-40', 'saturate-50');
-        }
-      });
-    }
-
-    function computePoints(isCorrect, timeLeft, timeLimit, streak) {
-      if (!isCorrect) return 0;
-      const base = 1000;
-      const speedBonus = Math.round(500 * Math.max(0, Math.min(1, timeLeft / Math.max(1, timeLimit))));
-      const streakBonus = Math.min(streak, 10) * 100;
-      return base + speedBonus + streakBonus;
-    }
-
-    function handleSelectOption(choiceIdx) {
-      if (state.answeredCurrent) return;
-      state.answeredCurrent = true;
-      clearTimer();
-
-      const qItem = state.deck[state.currentIndex];
-      const correctIdx = qItem.shuffledOptions.findIndex(o => o.isCorrect);
-      const isCorrect = choiceIdx === correctIdx;
-
-      lockCards(choiceIdx, correctIdx);
-
-      let pointsEarned = 0;
-      if (isCorrect) {
-        state.streak += 1;
-        state.maxStreak = Math.max(state.maxStreak, state.streak);
-        pointsEarned = computePoints(true, state.timeLeft, state.currentTimeLimit, state.streak);
-        state.score += pointsEarned;
-
-        SoundEngine.correct(state.streak);
-        dom.streakBadge.classList.add('scale-110', 'ring-2', 'ring-[#ffd000]');
-        setTimeout(() => dom.streakBadge.classList.remove('scale-110', 'ring-2', 'ring-[#ffd000]'), 320);
-
-        showFeedback({
-          isCorrect: true,
-          timedOut: false,
-          pointsEarned,
-          explanation: qItem.explanation
-        });
-      } else {
-        state.streak = 0;
-        SoundEngine.wrong();
-        showFeedback({
-          isCorrect: false,
-          timedOut: false,
-          pointsEarned: 0,
-          explanation: qItem.explanation,
-          correctText: qItem.shuffledOptions[correctIdx]?.text || ''
-        });
-      }
-
-      dom.streakCount.textContent = state.streak;
-      dom.liveScore.textContent = state.score.toLocaleString('vi-VN');
-
-      state.history.push({
-        question: qItem.question,
-        shuffledOptions: qItem.shuffledOptions,
-        userChoiceIndex: choiceIdx,
-        correctIndex: correctIdx,
-        isCorrect,
-        pointsEarned,
-        timedOut: false,
-        explanation: qItem.explanation
-      });
-    }
-
-    function handleTimeout() {
-      if (state.answeredCurrent) return;
-      state.answeredCurrent = true;
-
-      const qItem = state.deck[state.currentIndex];
-      const correctIdx = qItem.shuffledOptions.findIndex(o => o.isCorrect);
-
-      state.streak = 0;
-      dom.streakCount.textContent = 0;
-      SoundEngine.timeout();
-
-      lockCards(-1, correctIdx);
-      showFeedback({
-        isCorrect: false,
-        timedOut: true,
-        pointsEarned: 0,
-        explanation: qItem.explanation,
-        correctText: qItem.shuffledOptions[correctIdx]?.text || ''
-      });
-
-      state.history.push({
-        question: qItem.question,
-        shuffledOptions: qItem.shuffledOptions,
-        userChoiceIndex: -1,
-        correctIndex: correctIdx,
-        isCorrect: false,
-        pointsEarned: 0,
-        timedOut: true,
-        explanation: qItem.explanation
-      });
-    }
-
-    function showFeedback({ isCorrect, timedOut, pointsEarned, explanation, correctText }) {
-      dom.feedbackBanner.classList.remove('hidden');
-
-      if (isCorrect) {
-        dom.feedbackTitle.className = 'text-lg sm:text-xl font-black text-emerald-300';
-        dom.feedbackTitle.textContent = state.streak >= 2
-          ? `🎉 Chính xác! Chuỗi ${state.streak} câu liên tiếp!`
-          : '🎉 Chính xác!';
-        dom.feedbackPointsPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/25 text-emerald-200 border border-emerald-400/40';
-        dom.feedbackPointsPill.textContent = `+${pointsEarned.toLocaleString('vi-VN')} điểm`;
-      } else if (timedOut) {
-        dom.feedbackTitle.className = 'text-lg sm:text-xl font-black text-[#ffd000]';
-        dom.feedbackTitle.textContent = '⏰ Hết giờ!';
-        dom.feedbackPointsPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/10 text-purple-200';
-        dom.feedbackPointsPill.textContent = '+0 điểm';
-      } else {
-        dom.feedbackTitle.className = 'text-lg sm:text-xl font-black text-rose-400';
-        dom.feedbackTitle.textContent = '💥 Chưa chính xác!';
-        dom.feedbackPointsPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-200 border border-rose-400/30';
-        dom.feedbackPointsPill.textContent = '+0 điểm';
-      }
-
-      const details = [];
-      if (!isCorrect && correctText) {
-        details.push(`Đáp án đúng: "${correctText}".`);
-      }
-      if (explanation) {
-        details.push(explanation);
-      }
-      dom.feedbackExplanation.textContent = details.join(' ');
-    }
-
-    function nextQuestion() {
-      SoundEngine.click();
-      if (state.currentIndex + 1 < state.deck.length) {
-        state.currentIndex += 1;
-        renderCurrentQuestion();
-      } else {
-        renderSummary();
-      }
-    }
-
-    // =========================================================================
-    // 7. SUMMARY SCREEN
-    // =========================================================================
-    function renderSummary() {
-      clearTimer();
-      switchView('summary');
-      SoundEngine.victory();
-
-      const total = state.history.length;
-      const rightCount = state.history.filter(h => h.isCorrect).length;
-      const wrongCount = total - rightCount;
-      const accuracy = total > 0 ? Math.round((rightCount / total) * 100) : 0;
-
-      dom.finalScoreText.textContent = state.score.toLocaleString('vi-VN');
-      dom.finalAccuracyText.textContent = `${accuracy}%`;
-      dom.finalMaxStreakText.textContent = `${state.maxStreak}🔥`;
-      dom.finalRightWrongText.textContent = `${rightCount} / ${wrongCount}`;
-      dom.reviewSummaryCount.textContent = `Đúng ${rightCount}/${total} câu`;
-
-      if (accuracy >= 80) {
-        dom.summaryTrophy.textContent = '🏆';
-        dom.summaryHeadline.textContent = 'Xuất Sắc! Phá Đảo Bộ Đề!';
-        dom.summarySubtext.textContent = 'Tốc độ và độ chính xác của bạn cực kỳ ấn tượng.';
-      } else if (accuracy >= 50) {
-        dom.summaryTrophy.textContent = '🥈';
-        dom.summaryHeadline.textContent = 'Hoàn Thành Rất Tốt!';
-        dom.summarySubtext.textContent = 'Xem lại chi tiết từng câu bên dưới để tối ưu điểm số ở lần chơi sau.';
-      } else {
-        dom.summaryTrophy.textContent = '🎯';
-        dom.summaryHeadline.textContent = 'Đã Hoàn Thành Lượt Chơi!';
-        dom.summarySubtext.textContent = 'Kiểm tra lại các câu chưa đúng bên dưới rồi thử lại ngay nhé.';
-      }
-
-      dom.reviewList.innerHTML = '';
-      state.history.forEach((item, idx) => {
-        const card = document.createElement('div');
-        const boxStyle = item.isCorrect
-          ? 'border-emerald-400/35 bg-emerald-950/25'
-          : 'border-rose-400/35 bg-rose-950/25';
-
-        const badge = item.isCorrect
-          ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">✓ Đúng (+${item.pointsEarned.toLocaleString('vi-VN')}đ)</span>`
-          : item.timedOut
-            ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-500/25 text-amber-200 border border-amber-400/40">⏰ Hết giờ</span>`
-            : `<span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-500/25 text-rose-200 border border-rose-400/30">✕ Sai</span>`;
-
-        const userChoiceText = item.userChoiceIndex >= 0 && item.shuffledOptions[item.userChoiceIndex]
-          ? item.shuffledOptions[item.userChoiceIndex].text
-          : 'Không chọn (Hết thời gian)';
-        const rightChoiceText = item.shuffledOptions[item.correctIndex]?.text || '';
-
-        card.className = `rounded-2xl border ${boxStyle} p-4 sm:p-5 space-y-2.5`;
-        card.innerHTML = `
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-purple-200/80">Câu ${idx + 1}</span>
-            ${badge}
-          </div>
-          <p class="font-bold text-sm sm:text-base text-white leading-snug">${escapeHtml(item.question)}</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs sm:text-sm pt-1">
-            <div class="rounded-xl p-2.5 ${item.isCorrect ? 'bg-emerald-500/15 border border-emerald-400/30 text-emerald-100' : 'bg-rose-500/15 border border-rose-400/30 text-rose-100'}">
-              <span class="font-bold block text-[11px] uppercase opacity-75 mb-0.5">Bạn đã chọn</span>
-              ${escapeHtml(userChoiceText)}
-            </div>
-            <div class="rounded-xl p-2.5 bg-emerald-500/15 border border-emerald-400/30 text-emerald-100">
-              <span class="font-bold block text-[11px] uppercase opacity-75 mb-0.5">Đáp án đúng</span>
-              ${escapeHtml(rightChoiceText)}
-            </div>
-          </div>
-          ${item.explanation ? `
-            <div class="rounded-xl bg-black/30 border border-white/10 p-2.5 text-xs sm:text-sm text-purple-100/90">
-              <span class="font-bold text-[#ffd000]">Giải thích:</span> ${escapeHtml(item.explanation)}
-            </div>
-          ` : ''}
-        `;
-        dom.reviewList.appendChild(card);
-      });
-    }
-
-    // =========================================================================
-    // 8. DRAWER: PASTE CODE & MANUAL FORM
-    // =========================================================================
-    function openDrawer(tab = 'bulk', editIdx = null, suggestNewSet = false) {
-      setDrawerTab(tab);
-
-      if (tab === 'bulk') {
-        dom.targetSetNameInput.value = suggestNewSet ? `Đề ${state.sets.length + 1}` : '';
-        setTimeout(() => dom.bulkPasteTextarea.focus(), 120);
-      } else if (tab === 'form') {
-        if (editIdx !== null && getActiveQuestions()[editIdx]) {
-          loadQuestionIntoForm(editIdx);
-        } else {
-          resetManualFormFields();
-        }
-      }
-
-      dom.builderOverlay.classList.remove('hidden');
-      requestAnimationFrame(() => {
-        dom.builderDrawer.classList.remove('translate-x-full');
-      });
-    }
-
-    function closeDrawer() {
-      dom.builderDrawer.classList.add('translate-x-full');
-      setTimeout(() => {
-        dom.builderOverlay.classList.add('hidden');
-      }, 280);
-    }
-
-    function setDrawerTab(tab) {
-      state.drawerTab = tab;
-      const isBulk = tab === 'bulk';
-
-      dom.bulkModePanel.classList.toggle('hidden', !isBulk);
-      dom.formModePanel.classList.toggle('hidden', isBulk);
-
-      dom.tabBulkMode.className = isBulk
-        ? 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold bg-[#ff2a85] text-white transition cursor-pointer'
-        : 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-purple-200/80 hover:text-white transition cursor-pointer';
-
-      dom.tabFormMode.className = !isBulk
-        ? 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold bg-[#ff2a85] text-white transition cursor-pointer'
-        : 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-purple-200/80 hover:text-white transition cursor-pointer';
-    }
-
-    function renderDrawerQuestionLists() {
-      const questions = getActiveQuestions();
-      const count = questions.length;
-      const containers = [dom.bulkLoadedList, dom.formLoadedList];
-
-      containers.forEach(container => {
-        if (!container) return;
-        if (count === 0) {
-          container.innerHTML = `<p class="text-xs text-purple-200/60 italic py-2 text-center">Chưa có câu hỏi nào trong bộ đề này.</p>`;
-          return;
-        }
-
-        container.innerHTML = '';
-        questions.forEach((q, idx) => {
-          const item = document.createElement('div');
-          item.className = 'rounded-xl bg-black/30 border border-white/10 px-3 py-2 flex items-center justify-between gap-2';
-          item.innerHTML = `
-            <div class="min-w-0 flex-1">
-              <span class="text-[11px] font-extrabold text-[#ff7ab5]">Câu ${idx + 1}:</span>
-              <span class="text-xs text-white font-medium truncate inline-block align-bottom max-w-[78%]">${escapeHtml(q.question)}</span>
-            </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <button type="button" data-act="edit" class="px-2 py-1 rounded bg-white/10 hover:bg-[#ffd000] hover:text-[#1e0929] text-[11px] font-bold transition cursor-pointer">Sửa</button>
-              <button type="button" data-act="del" class="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 text-[11px] font-bold transition cursor-pointer">Xóa</button>
-            </div>
-          `;
-          item.querySelector('[data-act="edit"]').addEventListener('click', () => {
-            SoundEngine.click();
-            setDrawerTab('form');
-            loadQuestionIntoForm(idx);
-          });
-          item.querySelector('[data-act="del"]').addEventListener('click', () => {
-            deleteQuestionAt(idx);
-          });
-          container.appendChild(item);
-        });
-      });
-    }
-
-    // Parse JSON array or plain-text quiz format
-    function parseQuizInput(raw) {
-      const text = String(raw || '').trim();
-      if (!text) {
-        throw new Error('Ô nhập đang trống. Hãy dán mã câu hỏi vào trước!');
-      }
-
-      if (text.startsWith('[') || text.startsWith('{')) {
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (err) {
-          throw new Error('Mã JSON sai cú pháp. Vui lòng kiểm tra dấu ngoặc hoặc dấu phẩy.');
-        }
-
-        const arr = Array.isArray(data) ? data : (Array.isArray(data.questions) ? data.questions : null);
-        if (!arr || arr.length === 0) {
-          throw new Error('JSON phải là một mảng chứa ít nhất 1 câu hỏi.');
-        }
-
-        return arr.map((item, idx) => {
-          const question = String(item.question || '').trim();
-          const options = Array.isArray(item.options) ? item.options.map(o => String(o || '').trim()) : [];
-          if (!question || options.length !== 4 || options.some(o => !o)) {
-            throw new Error(`Câu #${idx + 1} trong JSON thiếu nội dung hoặc chưa đủ 4 đáp án.`);
-          }
-          const correctIndex = Number.isInteger(item.correctIndex) && item.correctIndex >= 0 && item.correctIndex <= 3
-            ? item.correctIndex
-            : 0;
-          const timeLimit = Number.isFinite(Number(item.timeLimit))
-            ? Math.max(5, Math.min(120, Math.round(Number(item.timeLimit))))
-            : 20;
-          return {
-            id: `q-${Date.now()}-${idx}`,
-            question,
-            options,
-            correctIndex,
-            timeLimit,
-            explanation: String(item.explanation || '').trim()
-          };
-        });
-      }
-
-      const blocks = text.split(/\n\s*\n+/);
-      const result = [];
-
-      blocks.forEach((block, bIdx) => {
-        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-        if (!lines.length) return;
-
-        let question = '';
-        const options = [];
-        let correctIndex = 0;
-        let explanation = '';
-
-        lines.forEach(line => {
-          const expMatch = line.match(/^(?:giải thích|explanation|lời giải)\s*:\s*(.+)$/i);
-          if (expMatch) {
-            explanation = expMatch[1].trim();
-            return;
-          }
-
-          const optMatch = line.match(/^(\*)?\s*([A-Da-d1-4])\s*[\.\)\:\-]\s*(.+)$/);
-          if (optMatch && options.length < 4) {
-            const leadStar = Boolean(optMatch[1]);
-            const trailStar = /\*$/.test(optMatch[3].trim());
-            const cleanOpt = optMatch[3].replace(/\*+$/, '').trim();
-            const pos = options.length;
-            options.push(cleanOpt);
-            if (leadStar || trailStar) {
-              correctIndex = pos;
-            }
-            return;
-          }
-
-          if (!question) {
-            question = line.replace(/^(?:câu\s*\d+\s*[\.\:\-]?)\s*/i, '').trim();
-          } else if (options.length === 0) {
-            question += ' ' + line;
-          }
-        });
-
-        if (question && options.length === 4 && options.every(Boolean)) {
-          result.push({
-            id: `q-txt-${Date.now()}-${bIdx}`,
-            question,
-            options,
-            correctIndex,
-            timeLimit: 20,
-            explanation
-          });
-        }
-      });
-
-      if (result.length === 0) {
-        throw new Error('Không đọc được câu hỏi hợp lệ. Hãy kiểm tra định dạng JSON hoặc A/B/C/D.');
-      }
-
-      return result;
-    }
-
-    async function handleSaveAsNewSet() {
-      try {
-        const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
-        const customName = dom.targetSetNameInput.value.trim();
-        const setName = customName || `Đề ${state.sets.length + 1}`;
-        const newSet = createDefaultSet(setName);
-        newSet.questions = parsed;
-
-        const nextSets = state.sets.concat(newSet);
-        const ok = await persistAllSets(nextSets, newSet.id);
-        SoundEngine.correct(1);
-        if (ok) {
-          dom.bulkPasteTextarea.value = '';
-          dom.targetSetNameInput.value = '';
-          showToast(`Đã lưu "${setName}" (${parsed.length} câu) — Đề cũ vẫn giữ nguyên!`, 'success');
-        }
-      } catch (err) {
-        SoundEngine.wrong();
-        showToast(err.message || 'Lỗi định dạng dữ liệu.', 'error');
-      }
-    }
-
-    async function handleAppendIntoTargetSet() {
-      try {
-        const parsed = parseQuizInput(dom.bulkPasteTextarea.value);
-        const customName = dom.targetSetNameInput.value.trim();
-
-        let nextSets = state.sets.slice();
-        let targetId = state.activeSetId;
-
-        if (customName) {
-          const existing = nextSets.find(s => s.name.toLowerCase() === customName.toLowerCase());
-          if (existing) {
-            targetId = existing.id;
-            nextSets = nextSets.map(s =>
-              s.id === existing.id
-                ? { ...s, questions: s.questions.concat(parsed), updatedAt: Date.now() }
-                : s
-            );
-          } else {
-            const created = createDefaultSet(customName);
-            created.questions = parsed;
-            targetId = created.id;
-            nextSets.push(created);
-          }
-        } else {
-          nextSets = nextSets.map(s =>
-            s.id === targetId
-              ? { ...s, questions: s.questions.concat(parsed), updatedAt: Date.now() }
-              : s
-          );
-        }
-
-        const targetSet = nextSets.find(s => s.id === targetId);
-        const ok = await persistAllSets(nextSets, targetId);
-        SoundEngine.correct(1);
-        if (ok) {
-          dom.bulkPasteTextarea.value = '';
-          dom.targetSetNameInput.value = '';
-          showToast(`Đã thêm ${parsed.length} câu vào "${targetSet?.name || 'bộ đề'}"!`, 'success');
-        }
-      } catch (err) {
-        SoundEngine.wrong();
-        showToast(err.message || 'Lỗi định dạng dữ liệu.', 'error');
-      }
-    }
-
-    // Manual Form Helpers
-    function resetManualFormFields() {
-      state.editingIndex = null;
-      dom.formHeaderTitle.textContent = `Thêm câu hỏi vào "${getActiveSet().name}"`;
-      dom.qPromptInput.value = '';
-      dom.qCorrectSelect.value = '0';
-      dom.qTimeInput.value = '20';
-      dom.qOpt0.value = '';
-      dom.qOpt1.value = '';
-      dom.qOpt2.value = '';
-      dom.qOpt3.value = '';
-      dom.qExplainInput.value = '';
-    }
-
-    function loadQuestionIntoForm(idx) {
-      const q = getActiveQuestions()[idx];
-      if (!q) return;
-      state.editingIndex = idx;
-      dom.formHeaderTitle.textContent = `Đang sửa Câu #${idx + 1} (${getActiveSet().name})`;
-      dom.qPromptInput.value = q.question || '';
-      dom.qCorrectSelect.value = String(q.correctIndex ?? 0);
-      dom.qTimeInput.value = String(q.timeLimit || 20);
-      dom.qOpt0.value = q.options[0] || '';
-      dom.qOpt1.value = q.options[1] || '';
-      dom.qOpt2.value = q.options[2] || '';
-      dom.qOpt3.value = q.options[3] || '';
-      dom.qExplainInput.value = q.explanation || '';
-    }
-
-    async function saveManualQuestion() {
-      const question = dom.qPromptInput.value.trim();
-      const options = [
-        dom.qOpt0.value.trim(),
-        dom.qOpt1.value.trim(),
-        dom.qOpt2.value.trim(),
-        dom.qOpt3.value.trim()
-      ];
-      const correctIndex = parseInt(dom.qCorrectSelect.value, 10) || 0;
-      const timeLimit = Math.max(5, Math.min(120, parseInt(dom.qTimeInput.value, 10) || 20));
-      const explanation = dom.qExplainInput.value.trim();
-
-      if (!question) {
-        showToast('Vui lòng nhập nội dung câu hỏi.', 'error');
-        dom.qPromptInput.focus();
-        return;
-      }
-      if (options.some(o => !o)) {
-        showToast('Vui lòng nhập đủ cả 4 đáp án A, B, C, D.', 'error');
-        return;
-      }
-
-      const activeSet = getActiveSet();
-      const updatedQuestions = activeSet.questions.slice();
-      const wasEditing = state.editingIndex !== null && updatedQuestions[state.editingIndex];
-      const editIdx = state.editingIndex;
-
-      const record = {
-        id: wasEditing ? updatedQuestions[editIdx].id : `q-${Date.now()}`,
-        question,
-        options,
-        correctIndex,
-        timeLimit,
-        explanation
-      };
-
-      if (wasEditing) {
-        updatedQuestions[editIdx] = record;
-      } else {
-        updatedQuestions.push(record);
-      }
-
-      const nextSets = state.sets.map(s =>
-        s.id === activeSet.id ? { ...s, questions: updatedQuestions, updatedAt: Date.now() } : s
-      );
-
-      resetManualFormFields();
-      const ok = await persistAllSets(nextSets, activeSet.id);
-      SoundEngine.correct(1);
-      if (ok) {
-        showToast(
-          wasEditing
-            ? `Đã cập nhật Câu #${editIdx + 1} trong "${activeSet.name}"!`
-            : `Đã thêm Câu #${updatedQuestions.length} vào "${activeSet.name}"!`,
-          'success'
-        );
-      }
-    }
-
-    // =========================================================================
-    // 9. EVENT LISTENERS & KEYBOARD SHORTCUTS
-    // =========================================================================
-    function bindEvents() {
-      dom.soundToggleBtn.addEventListener('click', () => {
-        const next = !SoundEngine.isEnabled();
-        SoundEngine.setEnabled(next);
-        dom.soundToggleBtn.setAttribute('aria-pressed', String(next));
-        dom.soundIcon.textContent = next ? '🔊' : '🔇';
-        dom.soundLabel.textContent = next ? 'Âm thanh: Bật' : 'Âm thanh: Tắt';
-        if (next) SoundEngine.click();
-        showToast(next ? 'Đã bật âm thanh' : 'Đã tắt âm thanh', 'info');
-      });
-
-      dom.homeLogoBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        switchView('lobby');
-      });
-      dom.backToLobbyBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        switchView('lobby');
-      });
-
-      // Set Switcher Events
-      dom.quizSetSelect.addEventListener('change', (e) => {
-        SoundEngine.click();
-        state.activeSetId = e.target.value;
-        state.editingIndex = null;
-        saveLocalCache(state.sets, state.activeSetId);
-        syncAllUI();
-        showToast(`Đã chuyển sang "${getActiveSet().name}".`, 'info');
-      });
-
-      dom.quickNewSetBtn.addEventListener('click', createBlankQuizSet);
-
-      dom.renameSetBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        const willShow = dom.renameSetBox.classList.contains('hidden');
-        dom.renameSetBox.classList.toggle('hidden', !willShow);
-        if (willShow) {
-          dom.renameSetInput.value = getActiveSet().name;
-          dom.renameSetInput.focus();
-        }
-      });
-
-      dom.confirmRenameSetBtn.addEventListener('click', renameActiveSet);
-      dom.renameSetInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          renameActiveSet();
-        }
-      });
-
-      dom.deleteCurrentSetBtn.addEventListener('click', deleteCurrentSet);
-      dom.drawerClearCurrentSetBtn.addEventListener('click', clearCurrentSetQuestions);
-
-      // Drawer Triggers
-      dom.lobbyPasteCodeBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        openDrawer('bulk', null, true);
-      });
-      dom.headerPasteBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        openDrawer('bulk', null, false);
-      });
-      dom.lobbyManualCreateBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        openDrawer('form', null, false);
-      });
-
-      // Game & Summary Triggers
-      dom.startGameBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        startGame();
-      });
-      dom.playAgainBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        startGame();
-      });
-      dom.playFromDrawerBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        closeDrawer();
-        startGame();
-      });
-
-      dom.loadNewCodeBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        switchView('lobby');
-        openDrawer('bulk', null, true);
-      });
-
-      dom.nextQuestionBtn.addEventListener('click', nextQuestion);
-
-      // Drawer Controls
-      dom.closeBuilderBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        closeDrawer();
-      });
-      dom.builderOverlay.addEventListener('click', closeDrawer);
-      dom.tabBulkMode.addEventListener('click', () => {
-        SoundEngine.click();
-        setDrawerTab('bulk');
-      });
-      dom.tabFormMode.addEventListener('click', () => {
-        SoundEngine.click();
-        setDrawerTab('form');
-      });
-
-      // Bulk Import Actions
-      dom.clearTextareaBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        dom.bulkPasteTextarea.value = '';
-        dom.bulkPasteTextarea.focus();
-      });
-      dom.saveAsNewSetBtn.addEventListener('click', handleSaveAsNewSet);
-      dom.appendImportBtn.addEventListener('click', handleAppendIntoTargetSet);
-
-      // Manual Form Actions
-      dom.resetFormFieldsBtn.addEventListener('click', () => {
-        SoundEngine.click();
-        resetManualFormFields();
-        dom.qPromptInput.focus();
-      });
-      dom.saveManualQuestionBtn.addEventListener('click', saveManualQuestion);
-
-      // Keyboard shortcuts
-      window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !dom.builderDrawer.classList.contains('translate-x-full')) {
-          closeDrawer();
-          return;
-        }
-        if (state.view !== 'game' || !dom.builderDrawer.classList.contains('translate-x-full')) {
-          return;
-        }
-        const k = e.key.toLowerCase();
-        if (!state.answeredCurrent) {
-          const map = { '1': 0, 'a': 0, '2': 1, 'b': 1, '3': 2, 'c': 2, '4': 3, 'd': 3 };
-          if (Object.prototype.hasOwnProperty.call(map, k)) {
-            e.preventDefault();
-            handleSelectOption(map[k]);
-          }
-        } else if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          nextQuestion();
-        }
-      });
-    }
-
-    // =========================================================================
-    // 10. INIT
-    // =========================================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      bindEvents();
-      syncAllUI();
-      loadSetsFromCloud();
-    });
-  </script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
