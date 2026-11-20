@@ -536,7 +536,7 @@ async function decideAccessRequest(reqId, decision) {
   if (!requireOwnerOnly('duyệt yêu cầu quyền sửa') || !reqId) return;
   try {
     const base = String(DB_BASE_URL || '').replace(/\/+$/, '');
-    const cleanPath = String(REQUESTS_PATH || '').replace(/^\/+|\/+$/g, '');
+    const cleanPath = String(REQUESTS_PATH || '').replace(/^\/+|\/+$/g, '').replace(/\.json$/i, '');
     const url = `${base}/${cleanPath}/${encodeURIComponent(reqId)}.json`;
 
     const res = await fetch(url, {
@@ -555,7 +555,7 @@ async function decideAccessRequest(reqId, decision) {
       decision === 'approved' ? 'success' : 'info'
     );
   } catch (e) {
-    showToast('Lỗi khi cập nhật trạng thái yêu cầu.', 'error');
+    showToast(`Lỗi khi cập nhật trạng thái yêu cầu (${e.message || 'lỗi mạng'}).`, 'error');
   }
 }
 
@@ -742,6 +742,14 @@ async function refreshMetaOnly(reloadActiveSet = false) {
 async function initCloudMetadataAndActiveSet() {
   state.syncStatus = 'loading';
   updateSyncBadge();
+
+  const safetyTimer = setTimeout(() => {
+    if (state.syncStatus === 'loading') {
+      state.syncStatus = 'offline';
+      syncAllUI();
+    }
+  }, 6000);
+
   try {
     const rawMeta = await fbGet(META_PATH);
     let metaList = normalizeMetaList(
@@ -797,6 +805,9 @@ async function initCloudMetadataAndActiveSet() {
   } catch (err) {
     state.syncStatus = 'offline';
     syncAllUI();
+    showToast(`Không tải được dữ liệu cloud (${err.message || 'lỗi mạng'}).`, 'error');
+  } finally {
+    clearTimeout(safetyTimer);
   }
 }
 
@@ -2008,6 +2019,10 @@ function bindEvents() {
     }
   });
 }
+
+window.addEventListener('unhandledrejection', (e) => {
+  showToast(`Lỗi chạy ngầm: ${e.reason?.message || e.reason || 'không xác định'}`, 'error');
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   bindEvents();
