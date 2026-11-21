@@ -1,52 +1,86 @@
-import { OWNER_PIN_CODE as PIN_FROM_FB, isOwnerUnlocked, setOwnerUnlocked } from './firebase.js';
+import {
+  FIREBASE_DB_URL,
+  META_PATH,
+  SET_QUESTIONS_PATH,
+  REQUESTS_PATH,
+  LEGACY_MULTI_PATH,
+  LEGACY_SINGLE_PATH,
+  OWNER_PIN_CODE as PIN_FROM_FB,
+  isOwnerUnlocked,
+  setOwnerUnlocked,
+  getSavedRequestId,
+  setSavedRequestId
+} from './firebase.js';
 
-const DB_BASE_URL = 'https://quizizz-mini-shared-e3865-default-rtdb.asia-southeast1.firebasedatabase.app';
-const META_PATH = 'quizizz_mini/sets_meta';
-const SET_QUESTIONS_PATH = (setId) => `quizizz_mini/sets/${encodeURIComponent(setId)}`;
-const REQUESTS_PATH = 'quizizz_mini/access_requests';
-const LEGACY_MULTI_PATH = 'quizizz_mini/sets';
-const LEGACY_SINGLE_PATH = 'quizizz_mini/questions';
+const DB_BASE_URL = FIREBASE_DB_URL || 'https://quizizz-mini-shared-e3865-default-rtdb.asia-southeast1.firebasedatabase.app';
+const META_ENDPOINT = META_PATH || '/quizizz_mini/sets_meta.json';
+const SET_ENDPOINT = typeof SET_QUESTIONS_PATH === 'function'
+  ? SET_QUESTIONS_PATH
+  : (setId) => `/quizizz_mini/sets/${encodeURIComponent(setId)}.json`;
+const REQUESTS_ENDPOINT = REQUESTS_PATH || '/quizizz_mini/access_requests.json';
+const LEGACY_MULTI_ENDPOINT = LEGACY_MULTI_PATH || '/quizizz_mini/quiz_sets.json';
+const LEGACY_SINGLE_ENDPOINT = LEGACY_SINGLE_PATH || '/quizizz_mini/shared_questions.json';
 const OWNER_PIN_CODE = PIN_FROM_FB || '226';
+const REQUEST_TIMEOUT_MS = 8000;
 
 function buildFbUrl(path) {
   const clean = String(path || '').replace(/^\/+/, '').replace(/\.json$/i, '');
   return `${DB_BASE_URL}/${clean}.json`;
 }
 
+async function fbRequest(path, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(buildFbUrl(path), {
+      ...options,
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Kết nối Firebase quá thời gian chờ');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fbGet(path) {
-  const res = await fetch(buildFbUrl(path), { cache: 'no-store' });
-  if (!res.ok) throw new Error(`GET ${res.status}`);
-  return await res.json();
+  return await fbRequest(path, { cache: 'no-store' });
 }
 
 async function fbPut(path, data) {
-  const res = await fetch(buildFbUrl(path), {
+  return await fbRequest(path, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error(`PUT ${res.status}`);
-  return await res.json();
+}
+
+async function fbPatch(path, data) {
+  return await fbRequest(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
 }
 
 async function fbPost(path, data) {
-  const res = await fetch(buildFbUrl(path), {
+  return await fbRequest(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error(`POST ${res.status}`);
-  return await res.json();
 }
 
 async function fbDelete(path) {
-  const res = await fetch(buildFbUrl(path), { method: 'DELETE' });
-  if (!res.ok) throw new Error(`DELETE ${res.status}`);
-  return await res.json();
+  return await fbRequest(path, { method: 'DELETE' });
 }
 
 const LOCAL_PREF_KEY = 'quizizz_mini_pref_v3';
-const GUEST_REQ_ID_KEY = 'quizizz_mini_guest_req_id_v1';
 
 const SoundEngine = (() => {
   let audioCtx = null;
@@ -186,21 +220,6 @@ function saveLightweightPref() {
         : null
     };
     localStorage.setItem(LOCAL_PREF_KEY, JSON.stringify(payload));
-  } catch (e) {}
-}
-
-function getGuestRequestId() {
-  try {
-    return localStorage.getItem(GUEST_REQ_ID_KEY) || '';
-  } catch (e) {
-    return '';
-  }
-}
-
-function setGuestRequestId(id) {
-  try {
-    if (id) localStorage.setItem(GUEST_REQ_ID_KEY, id);
-    else localStorage.removeItem(GUEST_REQ_ID_KEY);
   } catch (e) {}
 }
 
@@ -373,6 +392,7 @@ function escapeHtml(str) {
 }
 
 function showToast(message, type = 'info') {
+  if (!dom.toastContainer) return;
   const styles = {
     success: 'bg-emerald-950/95 border-emerald-400/50 text-emerald-100',
     error: 'bg-rose-950/95 border-rose-400/50 text-rose-100',
@@ -419,7 +439,7 @@ function requireOwnerOnly(actionLabel = 'thực hiện thao tác quản trị n�
 }
 
 function unlockOwnerMode() {
-  const pin = dom.ownerPinInput.value.trim();
+  const pin = dom.ownerPinInput?.value.trim() || '';
   if (pin !== OWNER_PIN_CODE) {
     SoundEngine.wrong();
     showToast('Mã PIN chủ sở hữu chưa đúng.', 'error');
@@ -427,7 +447,7 @@ function unlockOwnerMode() {
   }
   setOwnerUnlocked(true, true);
   state.isOwner = true;
-  dom.ownerPinInput.value = '';
+  if (dom.ownerPinInput) dom.ownerPinInput.value = '';
   SoundEngine.correct(1);
   showToast('Đã mở quyền Chủ sở hữu!', 'success');
   syncRoleUI();
@@ -444,18 +464,18 @@ function lockOwnerMode() {
 }
 
 async function submitEditRequest() {
-  const requester = dom.guestNameInput.value.trim() || 'Người dùng ẩn danh';
-  const reason = dom.guestReasonInput.value.trim();
+  const requester = dom.guestNameInput?.value.trim() || 'Người dùng ẩn danh';
+  const reason = dom.guestReasonInput?.value.trim() || '';
   if (!reason) {
     showToast('Vui lòng nhập nội dung/lý do cần sửa đề.', 'error');
-    dom.guestReasonInput.focus();
+    dom.guestReasonInput?.focus();
     return;
   }
 
   setBusyState(true);
   try {
     const activeMeta = getActiveMeta();
-    const res = await fbPost(REQUESTS_PATH, {
+    const res = await fbPost(REQUESTS_ENDPOINT, {
       requester,
       reason,
       setId: activeMeta.id,
@@ -464,13 +484,13 @@ async function submitEditRequest() {
       createdAt: Date.now()
     });
     if (res && res.name) {
-      setGuestRequestId(res.name);
+      setSavedRequestId(res.name);
       state.guestApproved = false;
     }
-    dom.guestReasonInput.value = '';
+    if (dom.guestReasonInput) dom.guestReasonInput.value = '';
     SoundEngine.correct(1);
     showToast('Đã gửi yêu cầu quyền sửa tới chủ sở hữu!', 'success');
-    checkGuestRequestStatus();
+    await checkGuestRequestStatus();
   } catch (err) {
     showToast('Không gửi được yêu cầu lúc này.', 'error');
   } finally {
@@ -479,7 +499,7 @@ async function submitEditRequest() {
 }
 
 async function checkGuestRequestStatus() {
-  const reqId = getGuestRequestId();
+  const reqId = getSavedRequestId();
   if (!reqId) {
     state.guestApproved = false;
     if (dom.guestRequestStatusText) dom.guestRequestStatusText.textContent = '';
@@ -487,10 +507,10 @@ async function checkGuestRequestStatus() {
     return;
   }
   try {
-    const req = await fbGet(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`);
+    const req = await fbGet(`/quizizz_mini/access_requests/${encodeURIComponent(reqId)}.json`);
     if (!req) {
       state.guestApproved = false;
-      setGuestRequestId('');
+      setSavedRequestId('');
       if (dom.guestRequestStatusText) dom.guestRequestStatusText.textContent = '';
     } else if (req.status === 'approved') {
       state.guestApproved = true;
@@ -518,7 +538,7 @@ async function checkGuestRequestStatus() {
 async function loadAccessRequests() {
   if (!state.isOwner) return;
   try {
-    const raw = await fbGet(REQUESTS_PATH);
+    const raw = await fbGet(REQUESTS_ENDPOINT);
     if (!raw || typeof raw !== 'object') {
       state.accessRequests = [];
     } else {
@@ -533,13 +553,10 @@ async function loadAccessRequests() {
 async function decideAccessRequest(reqId, decision) {
   if (!requireOwnerOnly('duyệt yêu cầu quyền sửa') || !reqId) return;
   try {
-    const res = await fetch(buildFbUrl(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: decision, reviewedAt: Date.now() })
+    await fbPatch(`/quizizz_mini/access_requests/${encodeURIComponent(reqId)}.json`, {
+      status: decision,
+      reviewedAt: Date.now()
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     state.accessRequests = state.accessRequests.map(r =>
       r.id === reqId ? { ...r, status: decision } : r
     );
@@ -556,7 +573,7 @@ async function decideAccessRequest(reqId, decision) {
 async function dismissAccessRequest(reqId) {
   if (!requireOwnerOnly('xóa yêu cầu') || !reqId) return;
   try {
-    await fbDelete(`${REQUESTS_PATH}/${encodeURIComponent(reqId)}`);
+    await fbDelete(`/quizizz_mini/access_requests/${encodeURIComponent(reqId)}.json`);
     state.accessRequests = state.accessRequests.filter(r => r.id !== reqId);
     renderOwnerRequests();
     showToast('Đã xóa yêu cầu khỏi danh sách.', 'info');
@@ -566,7 +583,7 @@ async function dismissAccessRequest(reqId) {
 }
 
 function renderOwnerRequests() {
-  if (!state.isOwner || !dom.ownerRequestsPanel) return;
+  if (!state.isOwner || !dom.ownerRequestsPanel || !dom.ownerRequestsList) return;
   dom.ownerRequestsPanel.classList.remove('hidden');
 
   if (state.accessRequests.length === 0) {
@@ -606,30 +623,32 @@ function renderOwnerRequests() {
 
 function syncRoleUI() {
   const editable = canEditContent();
+  if (!dom.ownerRoleBadge) return;
+
   if (state.isOwner) {
     dom.ownerRoleBadge.textContent = '👑 Chủ sở hữu (Toàn quyền sửa/xóa)';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40';
-    dom.ownerPinInput.classList.add('hidden');
-    dom.ownerUnlockBtn.classList.add('hidden');
-    dom.ownerLockBtn.classList.remove('hidden');
-    dom.guestRequestPanel.classList.add('hidden');
+    dom.ownerPinInput?.classList.add('hidden');
+    dom.ownerUnlockBtn?.classList.add('hidden');
+    dom.ownerLockBtn?.classList.remove('hidden');
+    dom.guestRequestPanel?.classList.add('hidden');
     renderOwnerRequests();
   } else if (state.guestApproved) {
     dom.ownerRoleBadge.textContent = '✅ Đã được cấp quyền sửa đề';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40';
-    dom.ownerPinInput.classList.remove('hidden');
-    dom.ownerUnlockBtn.classList.remove('hidden');
-    dom.ownerLockBtn.classList.add('hidden');
-    dom.guestRequestPanel.classList.remove('hidden');
-    dom.ownerRequestsPanel.classList.add('hidden');
+    dom.ownerPinInput?.classList.remove('hidden');
+    dom.ownerUnlockBtn?.classList.remove('hidden');
+    dom.ownerLockBtn?.classList.add('hidden');
+    dom.guestRequestPanel?.classList.remove('hidden');
+    dom.ownerRequestsPanel?.classList.add('hidden');
   } else {
     dom.ownerRoleBadge.textContent = '👀 Chế độ Xem & Chơi (Chỉ chủ mới sửa/xóa)';
     dom.ownerRoleBadge.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-400/35';
-    dom.ownerPinInput.classList.remove('hidden');
-    dom.ownerUnlockBtn.classList.remove('hidden');
-    dom.ownerLockBtn.classList.add('hidden');
-    dom.guestRequestPanel.classList.remove('hidden');
-    dom.ownerRequestsPanel.classList.add('hidden');
+    dom.ownerPinInput?.classList.remove('hidden');
+    dom.ownerUnlockBtn?.classList.remove('hidden');
+    dom.ownerLockBtn?.classList.add('hidden');
+    dom.guestRequestPanel?.classList.remove('hidden');
+    dom.ownerRequestsPanel?.classList.add('hidden');
   }
 
   [
@@ -684,7 +703,7 @@ async function ensureSetQuestionsLoaded(setId, forceRefresh = false) {
   state.syncStatus = 'loading';
   updateSyncBadge();
   try {
-    const raw = await fbGet(SET_QUESTIONS_PATH(setId));
+    const raw = await fbGet(SET_ENDPOINT(setId));
     const clean = sanitizeQuestions(
       Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? Object.values(raw) : [])
     );
@@ -707,7 +726,7 @@ async function ensureSetQuestionsLoaded(setId, forceRefresh = false) {
 
 async function refreshMetaOnly(reloadActiveSet = false) {
   try {
-    const rawMeta = await fbGet(META_PATH);
+    const rawMeta = await fbGet(META_ENDPOINT);
     const metaList = normalizeMetaList(
       Array.isArray(rawMeta) ? rawMeta : (rawMeta && typeof rawMeta === 'object' ? Object.values(rawMeta) : [])
     );
@@ -720,7 +739,8 @@ async function refreshMetaOnly(reloadActiveSet = false) {
       const nextActive = state.setsMeta.find(m => m.id === state.activeSetId);
       const changed = !prevActive || !nextActive ||
         prevActive.updatedAt !== nextActive.updatedAt ||
-        prevActive.questionCount !== nextActive.questionCount;
+        prevActive.questionCount !== nextActive.questionCount ||
+        prevActive.name !== nextActive.name;
       saveLightweightPref();
       syncAllUI();
       if (reloadActiveSet || changed) {
@@ -739,44 +759,44 @@ async function initCloudMetadataAndActiveSet() {
       state.syncStatus = 'offline';
       syncAllUI();
     }
-  }, 5000);
+  }, 5500);
 
   try {
-    const rawMeta = await fbGet(META_PATH);
+    const rawMeta = await fbGet(META_ENDPOINT);
     let metaList = normalizeMetaList(
       Array.isArray(rawMeta) ? rawMeta : (rawMeta && typeof rawMeta === 'object' ? Object.values(rawMeta) : [])
     );
 
     if (metaList.length === 0) {
-      const legacyMulti = await fbGet(LEGACY_MULTI_PATH);
+      const legacyMulti = await fbGet(LEGACY_MULTI_ENDPOINT);
       if (Array.isArray(legacyMulti) && legacyMulti.length > 0) {
         const migrated = [];
         for (let i = 0; i < legacyMulti.length; i++) {
           const s = legacyMulti[i];
           const setId = String(s.id || `set-mig-${i}-${Date.now()}`);
           const cleanQs = sanitizeQuestions(s.questions);
-          await fbPut(SET_QUESTIONS_PATH(setId), cleanQs);
+          await fbPut(SET_ENDPOINT(setId), cleanQs);
           state.questionsBySetId[setId] = cleanQs;
           state.loadedSetIds.add(setId);
           migrated.push(makeMetaEntry(setId, s.name || `Đề ${i + 1}`, cleanQs.length, false, s.updatedAt));
         }
         metaList = normalizeMetaList(migrated);
-        await fbPut(META_PATH, metaList);
+        await fbPut(META_ENDPOINT, metaList);
       }
     }
 
     if (metaList.length === 0) {
-      const legacySingle = await fbGet(LEGACY_SINGLE_PATH);
+      const legacySingle = await fbGet(LEGACY_SINGLE_ENDPOINT);
       const cleanSingle = sanitizeQuestions(
         Array.isArray(legacySingle) ? legacySingle : (legacySingle && typeof legacySingle === 'object' ? Object.values(legacySingle) : [])
       );
       if (cleanSingle.length > 0) {
         const firstId = `set-${Date.now()}`;
-        await fbPut(SET_QUESTIONS_PATH(firstId), cleanSingle);
+        await fbPut(SET_ENDPOINT(firstId), cleanSingle);
         state.questionsBySetId[firstId] = cleanSingle;
         state.loadedSetIds.add(firstId);
         metaList = [makeMetaEntry(firstId, 'Đề 1', cleanSingle.length, false)];
-        await fbPut(META_PATH, metaList);
+        await fbPut(META_ENDPOINT, metaList);
       }
     }
 
@@ -804,8 +824,8 @@ async function initCloudMetadataAndActiveSet() {
 
 async function applyTimeToEntireActiveSet() {
   if (!requireEditor('chỉnh thời gian cho cả bộ đề') || state.isBusy) return;
-  const sec = Math.max(5, Math.min(300, parseInt(dom.bulkSetTimeInput.value, 10) || 20));
-  dom.bulkSetTimeInput.value = String(sec);
+  const sec = Math.max(5, Math.min(300, parseInt(dom.bulkSetTimeInput?.value, 10) || 20));
+  if (dom.bulkSetTimeInput) dom.bulkSetTimeInput.value = String(sec);
 
   setBusyState(true);
   SoundEngine.click();
@@ -836,7 +856,7 @@ async function togglePinActiveSet() {
   saveLightweightPref();
   syncAllUI();
   try {
-    await fbPut(META_PATH, state.setsMeta);
+    await fbPut(META_ENDPOINT, state.setsMeta);
     const updated = state.setsMeta.find(m => m.id === activeId);
     showToast(updated?.pinned ? `Đã ghim "${updated.name}".` : `Đã bỏ ghim "${updated?.name || 'bộ đề'}".`, 'success');
   } catch (e) {
@@ -869,8 +889,8 @@ async function duplicateActiveSet() {
     saveLightweightPref();
     syncAllUI();
 
-    await fbPut(SET_QUESTIONS_PATH(newId), clonedQs);
-    await fbPut(META_PATH, state.setsMeta);
+    await fbPut(SET_ENDPOINT(newId), clonedQs);
+    await fbPut(META_ENDPOINT, state.setsMeta);
     showToast(`Đã nhân bản thành "${newName}" (${clonedQs.length} câu)!`, 'success');
   } catch (e) {
     showToast('Lỗi khi nhân bản bộ đề.', 'error');
@@ -879,24 +899,32 @@ async function duplicateActiveSet() {
   }
 }
 
-async function createBlankQuizSet() {
+async function createBlankQuizSet(customName = '') {
   if (!requireEditor('tạo bộ đề mới') || state.isBusy) return;
   setBusyState(true);
   resetDeleteGuard();
   SoundEngine.click();
 
-  const newMeta = makeMetaEntry(`set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, `Đề ${state.setsMeta.length + 1}`, 0, false);
+  const chosenName = String(customName || dom.targetSetNameInput?.value || '').trim()
+    || `Đề ${state.setsMeta.length + 1}`;
+  const newMeta = makeMetaEntry(
+    `set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    chosenName,
+    0,
+    false
+  );
   state.setsMeta = normalizeMetaList(state.setsMeta.concat(newMeta));
   state.activeSetId = newMeta.id;
   state.questionsBySetId[newMeta.id] = [];
   state.loadedSetIds.add(newMeta.id);
+  if (dom.targetSetNameInput) dom.targetSetNameInput.value = '';
   saveLightweightPref();
   syncAllUI();
 
   try {
-    await fbPut(SET_QUESTIONS_PATH(newMeta.id), []);
-    await fbPut(META_PATH, state.setsMeta);
-    showToast(`Đã tạo "${newMeta.name}".`, 'success');
+    await fbPut(SET_ENDPOINT(newMeta.id), []);
+    await fbPut(META_ENDPOINT, state.setsMeta);
+    showToast(`Đã tạo bộ đề "${newMeta.name}".`, 'success');
   } catch (e) {
     showToast('Lỗi tạo bộ đề trên Firebase.', 'error');
   } finally {
@@ -906,9 +934,10 @@ async function createBlankQuizSet() {
 
 async function renameActiveSet() {
   if (!requireEditor('đổi tên bộ đề') || state.isBusy) return;
-  const nextName = dom.renameSetInput.value.trim();
+  const nextName = dom.renameSetInput?.value.trim() || '';
   if (!nextName) {
-    showToast('Nhập tên bộ đề trước khi lưu.', 'error');
+    showToast('Nhập tên mới cho bộ đề trước khi lưu.', 'error');
+    dom.renameSetInput?.focus();
     return;
   }
   setBusyState(true);
@@ -916,13 +945,13 @@ async function renameActiveSet() {
   state.setsMeta = normalizeMetaList(
     state.setsMeta.map(m => m.id === activeId ? { ...m, name: nextName, updatedAt: Date.now() } : m)
   );
-  dom.renameSetBox.classList.add('hidden');
+  dom.renameSetBox?.classList.add('hidden');
   saveLightweightPref();
   syncAllUI();
 
   try {
-    await fbPut(META_PATH, state.setsMeta);
-    showToast(`Đã đổi tên thành "${nextName}".`, 'success');
+    await fbPut(META_ENDPOINT, state.setsMeta);
+    showToast(`Đã đổi tên bộ đề thành "${nextName}".`, 'success');
   } catch (e) {
     showToast('Lỗi đổi tên trên Firebase.', 'error');
   } finally {
@@ -938,7 +967,7 @@ async function deleteCurrentSet() {
   if (state.pendingDeleteSetId !== targetId) {
     SoundEngine.click();
     state.pendingDeleteSetId = targetId;
-    dom.deleteCurrentSetBtn.textContent = '⚠️ Bấm lần nữa để xóa đề';
+    if (dom.deleteCurrentSetBtn) dom.deleteCurrentSetBtn.textContent = '⚠️ Bấm lần nữa để xóa đề';
     showToast(`Bấm thêm 1 lần nữa để xác nhận xóa "${activeMeta.name}".`, 'info');
     setTimeout(() => {
       if (state.pendingDeleteSetId === targetId) resetDeleteGuard();
@@ -951,7 +980,7 @@ async function deleteCurrentSet() {
   const remaining = state.setsMeta.filter(m => m.id !== targetId);
 
   try {
-    await fbDelete(SET_QUESTIONS_PATH(targetId));
+    await fbDelete(SET_ENDPOINT(targetId));
     delete state.questionsBySetId[targetId];
     state.loadedSetIds.delete(targetId);
 
@@ -961,12 +990,12 @@ async function deleteCurrentSet() {
       state.activeSetId = fresh.id;
       state.questionsBySetId[fresh.id] = [];
       state.loadedSetIds.add(fresh.id);
-      await fbPut(SET_QUESTIONS_PATH(fresh.id), []);
-      await fbPut(META_PATH, state.setsMeta);
+      await fbPut(SET_ENDPOINT(fresh.id), []);
+      await fbPut(META_ENDPOINT, state.setsMeta);
     } else {
       state.setsMeta = remaining;
       state.activeSetId = remaining[0].id;
-      await fbPut(META_PATH, state.setsMeta);
+      await fbPut(META_ENDPOINT, state.setsMeta);
     }
 
     saveLightweightPref();
@@ -991,8 +1020,8 @@ async function writeSetQuestionsAndMeta(setId, questions) {
   syncAllUI();
 
   try {
-    await fbPut(SET_QUESTIONS_PATH(setId), cleanQuestions);
-    await fbPut(META_PATH, state.setsMeta);
+    await fbPut(SET_ENDPOINT(setId), cleanQuestions);
+    await fbPut(META_ENDPOINT, state.setsMeta);
     state.syncStatus = 'synced';
     updateSyncBadge();
     return true;
@@ -1102,9 +1131,10 @@ function updateSyncBadge() {
 
 function renderSetSelector() {
   const activeMeta = getActiveMeta();
-  dom.totalSetsCount.textContent = state.setsMeta.length;
-  dom.activeSetTitleDisplay.textContent = activeMeta.name;
-  dom.pinSetBtn.textContent = activeMeta.pinned ? '📌 Đã ghim' : '📌 Ghim đề';
+  if (dom.totalSetsCount) dom.totalSetsCount.textContent = state.setsMeta.length;
+  if (dom.activeSetTitleDisplay) dom.activeSetTitleDisplay.textContent = activeMeta.name;
+  if (dom.pinSetBtn) dom.pinSetBtn.textContent = activeMeta.pinned ? '📌 Đã ghim' : '📌 Ghim đề';
+  if (!dom.quizSetSelect) return;
 
   const kw = state.setFilterText.trim().toLowerCase();
   const filtered = kw
@@ -1131,17 +1161,19 @@ function syncAllUI() {
   const hasQuestions = count > 0;
 
   renderSetSelector();
-  dom.headerCountPill.textContent = count;
+  if (dom.headerCountPill) dom.headerCountPill.textContent = count;
 
-  if (state.syncStatus === 'loading' && !state.loadedSetIds.has(activeMeta.id)) {
-    dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-pulse';
-    dom.lobbyStatusBadge.textContent = `Đang tải ${activeMeta.name}...`;
-  } else if (hasQuestions) {
-    dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-    dom.lobbyStatusBadge.textContent = `${activeMeta.name} • ${count} câu hỏi`;
-  } else {
-    dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-purple-300';
-    dom.lobbyStatusBadge.textContent = `${activeMeta.name} • 0 câu hỏi`;
+  if (dom.lobbyStatusDot && dom.lobbyStatusBadge) {
+    if (state.syncStatus === 'loading' && !state.loadedSetIds.has(activeMeta.id)) {
+      dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-pulse';
+      dom.lobbyStatusBadge.textContent = `Đang tải ${activeMeta.name}...`;
+    } else if (hasQuestions) {
+      dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+      dom.lobbyStatusBadge.textContent = `${activeMeta.name} • ${count} câu hỏi`;
+    } else {
+      dom.lobbyStatusDot.className = 'w-2 h-2 rounded-full bg-purple-300';
+      dom.lobbyStatusBadge.textContent = `${activeMeta.name} • 0 câu hỏi`;
+    }
   }
 
   updateSyncBadge();
@@ -1152,23 +1184,28 @@ function syncAllUI() {
     state.lastDeletedQuestion.setId === activeMeta.id &&
     Date.now() <= state.lastDeletedQuestion.expiresAt
   );
-  dom.undoDeleteBtn.classList.toggle('hidden', !canUndo);
+  dom.undoDeleteBtn?.classList.toggle('hidden', !canUndo);
 
-  dom.startGameBtn.disabled = !hasQuestions || (state.syncStatus === 'loading' && !state.loadedSetIds.has(activeMeta.id));
-  dom.startGameBtnLabel.textContent = hasQuestions
-    ? `Bắt đầu chơi (${count} câu)`
-    : 'Bắt đầu chơi (0 câu)';
+  if (dom.startGameBtn) {
+    dom.startGameBtn.disabled = !hasQuestions || (state.syncStatus === 'loading' && !state.loadedSetIds.has(activeMeta.id));
+  }
+  if (dom.startGameBtnLabel) {
+    dom.startGameBtnLabel.textContent = hasQuestions
+      ? `Bắt đầu chơi (${count} câu)`
+      : 'Bắt đầu chơi (0 câu)';
+  }
 
-  dom.bulkLoadedCount.textContent = count;
-  dom.formLoadedCount.textContent = count;
-  dom.drawerTotalCount.textContent = count;
-  dom.playFromDrawerBtn.disabled = !hasQuestions;
+  if (dom.bulkLoadedCount) dom.bulkLoadedCount.textContent = count;
+  if (dom.formLoadedCount) dom.formLoadedCount.textContent = count;
+  if (dom.drawerTotalCount) dom.drawerTotalCount.textContent = count;
+  if (dom.playFromDrawerBtn) dom.playFromDrawerBtn.disabled = !hasQuestions;
 
   renderLobby();
   renderDrawerQuestionLists();
 }
 
 function renderLobby() {
+  if (!dom.lobbyQuestionsContainer || !dom.lobbyListSummary) return;
   const activeMeta = getActiveMeta();
   const isLoadingSet = state.syncStatus === 'loading' && !state.loadedSetIds.has(activeMeta.id);
 
@@ -1267,9 +1304,9 @@ const QUIZIZZ_CARDS = [
 function switchView(target) {
   clearTimer();
   state.view = target;
-  dom.lobbyView.classList.toggle('hidden', target !== 'lobby');
-  dom.gameView.classList.toggle('hidden', target !== 'game');
-  dom.summaryView.classList.toggle('hidden', target !== 'summary');
+  dom.lobbyView?.classList.toggle('hidden', target !== 'lobby');
+  dom.gameView?.classList.toggle('hidden', target !== 'game');
+  dom.summaryView?.classList.toggle('hidden', target !== 'summary');
   if (target === 'lobby') renderLobby();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1296,8 +1333,8 @@ async function startGame(customQuestions = null) {
     return;
   }
 
-  const shuffleQ = dom.shuffleQuestionsCheckbox.checked;
-  const shuffleOpt = dom.shuffleOptionsCheckbox.checked;
+  const shuffleQ = Boolean(dom.shuffleQuestionsCheckbox?.checked);
+  const shuffleOpt = Boolean(dom.shuffleOptionsCheckbox?.checked);
   const orderedQuestions = shuffleQ ? shuffleArray(sourceQuestions) : sourceQuestions.slice();
 
   state.deck = orderedQuestions.map(q => {
@@ -1355,17 +1392,19 @@ function clearTimer() {
 function renderCurrentQuestion() {
   clearTimer();
   state.answeredCurrent = false;
-  dom.feedbackBanner.classList.add('hidden');
+  dom.feedbackBanner?.classList.add('hidden');
 
   const qItem = state.deck[state.currentIndex];
   const total = state.deck.length;
 
-  dom.currentQNum.textContent = state.currentIndex + 1;
-  dom.totalQNum.textContent = total;
-  dom.streakCount.textContent = state.streak;
-  dom.liveScore.textContent = state.score.toLocaleString('vi-VN');
-  dom.questionPrompt.textContent = qItem.question;
-  dom.nextQuestionBtn.textContent = state.currentIndex === total - 1 ? 'Xem tổng kết 🏆' : 'Câu tiếp theo →';
+  if (dom.currentQNum) dom.currentQNum.textContent = state.currentIndex + 1;
+  if (dom.totalQNum) dom.totalQNum.textContent = total;
+  if (dom.streakCount) dom.streakCount.textContent = state.streak;
+  if (dom.liveScore) dom.liveScore.textContent = state.score.toLocaleString('vi-VN');
+  if (dom.questionPrompt) dom.questionPrompt.textContent = qItem.question;
+  if (dom.nextQuestionBtn) {
+    dom.nextQuestionBtn.textContent = state.currentIndex === total - 1 ? 'Xem tổng kết 🏆' : 'Câu tiếp theo →';
+  }
 
   const gridFrag = document.createDocumentFragment();
   qItem.shuffledOptions.forEach((optObj, idx) => {
@@ -1385,8 +1424,10 @@ function renderCurrentQuestion() {
     btn.addEventListener('click', () => handleSelectOption(idx));
     gridFrag.appendChild(btn);
   });
-  dom.answersGrid.innerHTML = '';
-  dom.answersGrid.appendChild(gridFrag);
+  if (dom.answersGrid) {
+    dom.answersGrid.innerHTML = '';
+    dom.answersGrid.appendChild(gridFrag);
+  }
 
   const timeCfg = getEffectiveQuestionTime(qItem.timeLimit || 20);
   state.noTimeLimit = timeCfg.noLimit;
@@ -1415,6 +1456,7 @@ function renderCurrentQuestion() {
 }
 
 function updateTimerDisplay() {
+  if (!dom.timerText || !dom.timerBar || !dom.timerPill) return;
   if (state.noTimeLimit) {
     dom.timerText.textContent = '∞';
     if (dom.timerUnitText) dom.timerUnitText.textContent = 'tự do';
@@ -1431,6 +1473,7 @@ function updateTimerDisplay() {
 }
 
 function lockCards(selectedIdx, correctIdx) {
+  if (!dom.answersGrid) return;
   const btns = dom.answersGrid.querySelectorAll('button[data-option-idx]');
   btns.forEach((btn, idx) => {
     btn.disabled = true;
@@ -1480,8 +1523,8 @@ function handleSelectOption(choiceIdx) {
     });
   }
 
-  dom.streakCount.textContent = state.streak;
-  dom.liveScore.textContent = state.score.toLocaleString('vi-VN');
+  if (dom.streakCount) dom.streakCount.textContent = state.streak;
+  if (dom.liveScore) dom.liveScore.textContent = state.score.toLocaleString('vi-VN');
   state.history.push({
     question: qItem.question,
     shuffledOptions: qItem.shuffledOptions,
@@ -1500,7 +1543,7 @@ function handleTimeout() {
   const qItem = state.deck[state.currentIndex];
   const correctIdx = qItem.shuffledOptions.findIndex(o => o.isCorrect);
   state.streak = 0;
-  dom.streakCount.textContent = 0;
+  if (dom.streakCount) dom.streakCount.textContent = 0;
   SoundEngine.timeout();
   lockCards(-1, correctIdx);
   showFeedback({
@@ -1523,6 +1566,7 @@ function handleTimeout() {
 }
 
 function showFeedback({ isCorrect, timedOut, pointsEarned, explanation, correctText }) {
+  if (!dom.feedbackBanner || !dom.feedbackTitle || !dom.feedbackPointsPill || !dom.feedbackExplanation) return;
   dom.feedbackBanner.classList.remove('hidden');
   if (isCorrect) {
     dom.feedbackTitle.className = 'text-lg sm:text-xl font-black text-emerald-300';
@@ -1566,20 +1610,25 @@ function renderSummary() {
   const wrongCount = total - rightCount;
   const accuracy = total > 0 ? Math.round((rightCount / total) * 100) : 0;
 
-  dom.finalScoreText.textContent = state.score.toLocaleString('vi-VN');
-  dom.finalAccuracyText.textContent = `${accuracy}%`;
-  dom.finalMaxStreakText.textContent = `${state.maxStreak}🔥`;
-  dom.finalRightWrongText.textContent = `${rightCount} / ${wrongCount}`;
-  dom.reviewSummaryCount.textContent = `Đúng ${rightCount}/${total} câu`;
-  dom.practiceMistakesBtn.classList.toggle('hidden', wrongCount === 0);
-  dom.practiceMistakesBtn.textContent = `🎯 Ôn lại ${wrongCount} câu sai`;
+  if (dom.finalScoreText) dom.finalScoreText.textContent = state.score.toLocaleString('vi-VN');
+  if (dom.finalAccuracyText) dom.finalAccuracyText.textContent = `${accuracy}%`;
+  if (dom.finalMaxStreakText) dom.finalMaxStreakText.textContent = `${state.maxStreak}🔥`;
+  if (dom.finalRightWrongText) dom.finalRightWrongText.textContent = `${rightCount} / ${wrongCount}`;
+  if (dom.reviewSummaryCount) dom.reviewSummaryCount.textContent = `Đúng ${rightCount}/${total} câu`;
+  if (dom.practiceMistakesBtn) {
+    dom.practiceMistakesBtn.classList.toggle('hidden', wrongCount === 0);
+    dom.practiceMistakesBtn.textContent = `🎯 Ôn lại ${wrongCount} câu sai`;
+  }
 
-  dom.summaryTrophy.textContent = accuracy >= 80 ? '🏆' : accuracy >= 50 ? '🥈' : '🎯';
-  dom.summaryHeadline.textContent = accuracy >= 80 ? 'Xuất Sắc! Phá Đảo Bộ Đề!' : 'Hoàn Thành Lượt Chơi!';
-  dom.summarySubtext.textContent = wrongCount > 0
-    ? `Bạn có thể bấm "Ôn lại ${wrongCount} câu sai" để luyện tập thêm các câu chưa đúng.`
-    : 'Tuyệt đối chính xác toàn bộ câu hỏi trong lượt chơi này!';
+  if (dom.summaryTrophy) dom.summaryTrophy.textContent = accuracy >= 80 ? '🏆' : accuracy >= 50 ? '🥈' : '🎯';
+  if (dom.summaryHeadline) dom.summaryHeadline.textContent = accuracy >= 80 ? 'Xuất Sắc! Phá Đảo Bộ Đề!' : 'Hoàn Thành Lượt Chơi!';
+  if (dom.summarySubtext) {
+    dom.summarySubtext.textContent = wrongCount > 0
+      ? `Bạn có thể bấm "Ôn lại ${wrongCount} câu sai" để luyện tập thêm các câu chưa đúng.`
+      : 'Tuyệt đối chính xác toàn bộ câu hỏi trong lượt chơi này!';
+  }
 
+  if (!dom.reviewList) return;
   const reviewFrag = document.createDocumentFragment();
   state.history.forEach((item, idx) => {
     const card = document.createElement('div');
@@ -1618,27 +1667,29 @@ async function openDrawer(tab = 'bulk', editIdx = null, suggestNewSet = false) {
   if (!requireEditor('mở khung nhập/sửa câu hỏi')) return;
   setDrawerTab(tab);
   if (tab === 'bulk') {
-    dom.targetSetNameInput.value = suggestNewSet ? `Đề ${state.setsMeta.length + 1}` : '';
-    setTimeout(() => dom.bulkPasteTextarea.focus(), 120);
+    if (dom.targetSetNameInput) {
+      dom.targetSetNameInput.value = suggestNewSet ? `Đề ${state.setsMeta.length + 1}` : '';
+    }
+    setTimeout(() => dom.bulkPasteTextarea?.focus(), 120);
   } else {
     await ensureSetQuestionsLoaded(state.activeSetId, false);
     if (editIdx !== null && getActiveQuestions()[editIdx]) loadQuestionIntoForm(editIdx);
     else resetManualFormFields();
   }
-  dom.builderOverlay.classList.remove('hidden');
-  requestAnimationFrame(() => dom.builderDrawer.classList.remove('translate-x-full'));
+  dom.builderOverlay?.classList.remove('hidden');
+  requestAnimationFrame(() => dom.builderDrawer?.classList.remove('translate-x-full'));
 }
 
 function closeDrawer() {
-  dom.builderDrawer.classList.add('translate-x-full');
-  setTimeout(() => dom.builderOverlay.classList.add('hidden'), 280);
+  dom.builderDrawer?.classList.add('translate-x-full');
+  setTimeout(() => dom.builderOverlay?.classList.add('hidden'), 280);
 }
 
 function setDrawerTab(tab) {
   state.drawerTab = tab;
   const isBulk = tab === 'bulk';
-  dom.bulkModePanel.classList.toggle('hidden', !isBulk);
-  dom.formModePanel.classList.toggle('hidden', isBulk);
+  dom.bulkModePanel?.classList.toggle('hidden', !isBulk);
+  dom.formModePanel?.classList.toggle('hidden', isBulk);
 }
 
 function renderDrawerQuestionLists() {
@@ -1748,9 +1799,9 @@ async function handleSaveAsNewSet() {
   if (!requireEditor('lưu bộ đề mới') || state.isBusy) return;
   try {
     const defaultTime = Math.max(5, Math.min(300, parseInt(dom.bulkDefaultTimeInput?.value, 10) || 20));
-    const parsed = parseQuizInput(dom.bulkPasteTextarea.value, defaultTime);
+    const parsed = parseQuizInput(dom.bulkPasteTextarea?.value, defaultTime);
     setBusyState(true);
-    const name = dom.targetSetNameInput.value.trim() || `Đề ${state.setsMeta.length + 1}`;
+    const name = dom.targetSetNameInput?.value.trim() || `Đề ${state.setsMeta.length + 1}`;
     const newId = `set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const newMeta = makeMetaEntry(newId, name, parsed.length, false);
     state.setsMeta = normalizeMetaList(state.setsMeta.concat(newMeta));
@@ -1759,10 +1810,10 @@ async function handleSaveAsNewSet() {
     state.loadedSetIds.add(newId);
     saveLightweightPref();
     syncAllUI();
-    await fbPut(SET_QUESTIONS_PATH(newId), parsed);
-    await fbPut(META_PATH, state.setsMeta);
-    dom.bulkPasteTextarea.value = '';
-    dom.targetSetNameInput.value = '';
+    await fbPut(SET_ENDPOINT(newId), parsed);
+    await fbPut(META_ENDPOINT, state.setsMeta);
+    if (dom.bulkPasteTextarea) dom.bulkPasteTextarea.value = '';
+    if (dom.targetSetNameInput) dom.targetSetNameInput.value = '';
     SoundEngine.correct(1);
     showToast(`Đã lưu "${name}" (${parsed.length} câu, ${defaultTime}s/câu)!`, 'success');
   } catch (err) {
@@ -1777,9 +1828,9 @@ async function handleAppendIntoTargetSet() {
   if (!requireEditor('nạp thêm câu hỏi') || state.isBusy) return;
   try {
     const defaultTime = Math.max(5, Math.min(300, parseInt(dom.bulkDefaultTimeInput?.value, 10) || 20));
-    const parsed = parseQuizInput(dom.bulkPasteTextarea.value, defaultTime);
+    const parsed = parseQuizInput(dom.bulkPasteTextarea?.value, defaultTime);
     setBusyState(true);
-    const customName = dom.targetSetNameInput.value.trim();
+    const customName = dom.targetSetNameInput?.value.trim() || '';
     let targetId = state.activeSetId;
 
     if (customName) {
@@ -1800,10 +1851,10 @@ async function handleAppendIntoTargetSet() {
       await writeSetQuestionsAndMeta(targetId, cur.concat(parsed));
     }
 
-    dom.bulkPasteTextarea.value = '';
-    dom.targetSetNameInput.value = '';
+    if (dom.bulkPasteTextarea) dom.bulkPasteTextarea.value = '';
+    if (dom.targetSetNameInput) dom.targetSetNameInput.value = '';
     SoundEngine.correct(1);
-    showToast(`Đã thêm ${parsed.length} câu!`, 'success');
+    showToast(`Đã thêm ${parsed.length} câu vào "${getActiveMeta().name}"!`, 'success');
   } catch (err) {
     SoundEngine.wrong();
     showToast(err.message || 'Lỗi dữ liệu.', 'error');
@@ -1814,31 +1865,38 @@ async function handleAppendIntoTargetSet() {
 
 function resetManualFormFields() {
   state.editingIndex = null;
-  dom.formHeaderTitle.textContent = `Thêm câu hỏi vào "${getActiveMeta().name}"`;
-  [dom.qPromptInput, dom.qOpt0, dom.qOpt1, dom.qOpt2, dom.qOpt3, dom.qExplainInput].forEach(el => { el.value = ''; });
-  dom.qCorrectSelect.value = '0';
-  dom.qTimeInput.value = '20';
+  if (dom.formHeaderTitle) dom.formHeaderTitle.textContent = `Thêm câu hỏi vào "${getActiveMeta().name}"`;
+  [dom.qPromptInput, dom.qOpt0, dom.qOpt1, dom.qOpt2, dom.qOpt3, dom.qExplainInput].forEach(el => {
+    if (el) el.value = '';
+  });
+  if (dom.qCorrectSelect) dom.qCorrectSelect.value = '0';
+  if (dom.qTimeInput) dom.qTimeInput.value = '20';
 }
 
 function loadQuestionIntoForm(idx) {
   const q = getActiveQuestions()[idx];
   if (!q) return;
   state.editingIndex = idx;
-  dom.formHeaderTitle.textContent = `Đang sửa Câu #${idx + 1} (${getActiveMeta().name})`;
-  dom.qPromptInput.value = q.question || '';
-  dom.qCorrectSelect.value = String(q.correctIndex ?? 0);
-  dom.qTimeInput.value = String(q.timeLimit || 20);
-  dom.qOpt0.value = q.options[0] || '';
-  dom.qOpt1.value = q.options[1] || '';
-  dom.qOpt2.value = q.options[2] || '';
-  dom.qOpt3.value = q.options[3] || '';
-  dom.qExplainInput.value = q.explanation || '';
+  if (dom.formHeaderTitle) dom.formHeaderTitle.textContent = `Đang sửa Câu #${idx + 1} (${getActiveMeta().name})`;
+  if (dom.qPromptInput) dom.qPromptInput.value = q.question || '';
+  if (dom.qCorrectSelect) dom.qCorrectSelect.value = String(q.correctIndex ?? 0);
+  if (dom.qTimeInput) dom.qTimeInput.value = String(q.timeLimit || 20);
+  if (dom.qOpt0) dom.qOpt0.value = q.options[0] || '';
+  if (dom.qOpt1) dom.qOpt1.value = q.options[1] || '';
+  if (dom.qOpt2) dom.qOpt2.value = q.options[2] || '';
+  if (dom.qOpt3) dom.qOpt3.value = q.options[3] || '';
+  if (dom.qExplainInput) dom.qExplainInput.value = q.explanation || '';
 }
 
 async function saveManualQuestion() {
   if (!requireEditor('lưu câu hỏi') || state.isBusy) return;
-  const question = dom.qPromptInput.value.trim();
-  const options = [dom.qOpt0.value.trim(), dom.qOpt1.value.trim(), dom.qOpt2.value.trim(), dom.qOpt3.value.trim()];
+  const question = dom.qPromptInput?.value.trim() || '';
+  const options = [
+    dom.qOpt0?.value.trim() || '',
+    dom.qOpt1?.value.trim() || '',
+    dom.qOpt2?.value.trim() || '',
+    dom.qOpt3?.value.trim() || ''
+  ];
   if (!question || options.some(o => !o)) {
     showToast('Vui lòng nhập đầy đủ câu hỏi và 4 đáp án.', 'error');
     return;
@@ -1851,9 +1909,9 @@ async function saveManualQuestion() {
     id: state.editingIndex !== null && currentQs[state.editingIndex] ? currentQs[state.editingIndex].id : `q-${Date.now()}`,
     question,
     options,
-    correctIndex: parseInt(dom.qCorrectSelect.value, 10) || 0,
-    timeLimit: Math.max(5, Math.min(300, parseInt(dom.qTimeInput.value, 10) || 20)),
-    explanation: dom.qExplainInput.value.trim()
+    correctIndex: parseInt(dom.qCorrectSelect?.value, 10) || 0,
+    timeLimit: Math.max(5, Math.min(300, parseInt(dom.qTimeInput?.value, 10) || 20)),
+    explanation: dom.qExplainInput?.value.trim() || ''
   };
 
   if (state.editingIndex !== null && currentQs[state.editingIndex]) currentQs[state.editingIndex] = rec;
@@ -1863,16 +1921,16 @@ async function saveManualQuestion() {
   await writeSetQuestionsAndMeta(activeId, currentQs);
   setBusyState(false);
   SoundEngine.correct(1);
-  showToast('Đã lưu câu hỏi!', 'success');
+  showToast(`Đã lưu câu hỏi vào "${getActiveMeta().name}"!`, 'success');
 }
 
 function bindEvents() {
-  dom.ownerUnlockBtn.addEventListener('click', unlockOwnerMode);
-  dom.ownerLockBtn.addEventListener('click', lockOwnerMode);
-  dom.ownerPinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockOwnerMode(); });
-  dom.sendAccessRequestBtn.addEventListener('click', submitEditRequest);
+  dom.ownerUnlockBtn?.addEventListener('click', unlockOwnerMode);
+  dom.ownerLockBtn?.addEventListener('click', lockOwnerMode);
+  dom.ownerPinInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockOwnerMode(); });
+  dom.sendAccessRequestBtn?.addEventListener('click', submitEditRequest);
 
-  dom.refreshCloudBtn.addEventListener('click', async () => {
+  dom.refreshCloudBtn?.addEventListener('click', async () => {
     if (state.isBusy) return;
     setBusyState(true);
     await refreshMetaOnly(true);
@@ -1889,29 +1947,29 @@ function bindEvents() {
     }
   });
 
-  dom.soundToggleBtn.addEventListener('click', () => {
+  dom.soundToggleBtn?.addEventListener('click', () => {
     const next = !SoundEngine.isEnabled();
     SoundEngine.setEnabled(next);
     dom.soundToggleBtn.setAttribute('aria-pressed', String(next));
-    dom.soundIcon.textContent = next ? '🔊' : '🔇';
-    dom.soundLabel.textContent = next ? 'Âm thanh: Bật' : 'Âm thanh: Tắt';
+    if (dom.soundIcon) dom.soundIcon.textContent = next ? '🔊' : '🔇';
+    if (dom.soundLabel) dom.soundLabel.textContent = next ? 'Âm thanh: Bật' : 'Âm thanh: Tắt';
   });
 
-  dom.homeLogoBtn.addEventListener('click', () => switchView('lobby'));
-  dom.backToLobbyBtn.addEventListener('click', () => switchView('lobby'));
-  dom.exitGameBtn.addEventListener('click', () => switchView('lobby'));
+  dom.homeLogoBtn?.addEventListener('click', () => switchView('lobby'));
+  dom.backToLobbyBtn?.addEventListener('click', () => switchView('lobby'));
+  dom.exitGameBtn?.addEventListener('click', () => switchView('lobby'));
 
-  dom.setFilterInput.addEventListener('input', (e) => {
+  dom.setFilterInput?.addEventListener('input', (e) => {
     state.setFilterText = e.target.value || '';
     renderSetSelector();
   });
 
-  dom.questionSearchInput.addEventListener('input', (e) => {
+  dom.questionSearchInput?.addEventListener('input', (e) => {
     state.questionFilterText = e.target.value || '';
     renderLobby();
   });
 
-  dom.quizSetSelect.addEventListener('change', async (e) => {
+  dom.quizSetSelect?.addEventListener('change', async (e) => {
     const id = e.target.value;
     if (!id || id === state.activeSetId) return;
     resetDeleteGuard();
@@ -1922,22 +1980,22 @@ function bindEvents() {
     await ensureSetQuestionsLoaded(id, false);
   });
 
-  dom.applyTimeToAllBtn.addEventListener('click', applyTimeToEntireActiveSet);
-  dom.pinSetBtn.addEventListener('click', togglePinActiveSet);
-  dom.duplicateSetBtn.addEventListener('click', duplicateActiveSet);
-  dom.quickNewSetBtn.addEventListener('click', createBlankQuizSet);
-  dom.deleteCurrentSetBtn.addEventListener('click', deleteCurrentSet);
-  dom.drawerClearCurrentSetBtn.addEventListener('click', clearCurrentSetQuestions);
-  dom.undoDeleteBtn.addEventListener('click', undoLastDeletedQuestion);
+  dom.applyTimeToAllBtn?.addEventListener('click', applyTimeToEntireActiveSet);
+  dom.pinSetBtn?.addEventListener('click', togglePinActiveSet);
+  dom.duplicateSetBtn?.addEventListener('click', duplicateActiveSet);
+  dom.quickNewSetBtn?.addEventListener('click', () => createBlankQuizSet());
+  dom.deleteCurrentSetBtn?.addEventListener('click', deleteCurrentSet);
+  dom.drawerClearCurrentSetBtn?.addEventListener('click', clearCurrentSetQuestions);
+  dom.undoDeleteBtn?.addEventListener('click', undoLastDeletedQuestion);
 
-  dom.copySetJsonBtn.addEventListener('click', async () => {
+  dom.copySetJsonBtn?.addEventListener('click', async () => {
     const qs = await ensureSetQuestionsLoaded(state.activeSetId, false);
     if (!qs.length) return showToast('Bộ đề trống.', 'error');
     await navigator.clipboard.writeText(JSON.stringify(qs, null, 2));
     showToast(`Đã sao chép JSON (${qs.length} câu)!`, 'success');
   });
 
-  dom.downloadSetJsonBtn.addEventListener('click', async () => {
+  dom.downloadSetJsonBtn?.addEventListener('click', async () => {
     const qs = await ensureSetQuestionsLoaded(state.activeSetId, false);
     if (!qs.length) return showToast('Bộ đề trống.', 'error');
     const blob = new Blob([JSON.stringify(qs, null, 2)], { type: 'application/json' });
@@ -1950,44 +2008,54 @@ function bindEvents() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
-  dom.renameSetBtn.addEventListener('click', () => {
+  dom.renameSetBtn?.addEventListener('click', () => {
     if (!requireEditor('đổi tên bộ đề')) return;
-    const willShow = dom.renameSetBox.classList.contains('hidden');
-    dom.renameSetBox.classList.toggle('hidden', !willShow);
-    if (willShow) {
+    const willShow = dom.renameSetBox?.classList.contains('hidden');
+    dom.renameSetBox?.classList.toggle('hidden', !willShow);
+    if (willShow && dom.renameSetInput) {
       dom.renameSetInput.value = getActiveMeta().name;
       dom.renameSetInput.focus();
+      dom.renameSetInput.select();
     }
   });
 
-  dom.confirmRenameSetBtn.addEventListener('click', renameActiveSet);
-  dom.lobbyPasteCodeBtn.addEventListener('click', () => openDrawer('bulk', null, true));
-  dom.headerPasteBtn.addEventListener('click', () => openDrawer('bulk', null, false));
-  dom.lobbyManualCreateBtn.addEventListener('click', () => openDrawer('form', null, false));
+  dom.renameSetInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      renameActiveSet();
+    } else if (e.key === 'Escape') {
+      dom.renameSetBox?.classList.add('hidden');
+    }
+  });
 
-  dom.startGameBtn.addEventListener('click', () => startGame());
-  dom.playAgainBtn.addEventListener('click', () => startGame());
-  dom.practiceMistakesBtn.addEventListener('click', practiceWrongQuestionsOnly);
-  dom.playFromDrawerBtn.addEventListener('click', () => { closeDrawer(); startGame(); });
-  dom.loadNewCodeBtn.addEventListener('click', () => { switchView('lobby'); openDrawer('bulk', null, true); });
-  dom.nextQuestionBtn.addEventListener('click', nextQuestion);
+  dom.confirmRenameSetBtn?.addEventListener('click', renameActiveSet);
+  dom.lobbyPasteCodeBtn?.addEventListener('click', () => openDrawer('bulk', null, true));
+  dom.headerPasteBtn?.addEventListener('click', () => openDrawer('bulk', null, false));
+  dom.lobbyManualCreateBtn?.addEventListener('click', () => openDrawer('form', null, false));
 
-  dom.closeBuilderBtn.addEventListener('click', closeDrawer);
-  dom.builderOverlay.addEventListener('click', closeDrawer);
-  dom.tabBulkMode.addEventListener('click', () => setDrawerTab('bulk'));
-  dom.tabFormMode.addEventListener('click', () => setDrawerTab('form'));
-  dom.clearTextareaBtn.addEventListener('click', () => { dom.bulkPasteTextarea.value = ''; });
-  dom.saveAsNewSetBtn.addEventListener('click', handleSaveAsNewSet);
-  dom.appendImportBtn.addEventListener('click', handleAppendIntoTargetSet);
-  dom.resetFormFieldsBtn.addEventListener('click', resetManualFormFields);
-  dom.saveManualQuestionBtn.addEventListener('click', saveManualQuestion);
+  dom.startGameBtn?.addEventListener('click', () => startGame());
+  dom.playAgainBtn?.addEventListener('click', () => startGame());
+  dom.practiceMistakesBtn?.addEventListener('click', practiceWrongQuestionsOnly);
+  dom.playFromDrawerBtn?.addEventListener('click', () => { closeDrawer(); startGame(); });
+  dom.loadNewCodeBtn?.addEventListener('click', () => { switchView('lobby'); openDrawer('bulk', null, true); });
+  dom.nextQuestionBtn?.addEventListener('click', nextQuestion);
+
+  dom.closeBuilderBtn?.addEventListener('click', closeDrawer);
+  dom.builderOverlay?.addEventListener('click', closeDrawer);
+  dom.tabBulkMode?.addEventListener('click', () => setDrawerTab('bulk'));
+  dom.tabFormMode?.addEventListener('click', () => setDrawerTab('form'));
+  dom.clearTextareaBtn?.addEventListener('click', () => { if (dom.bulkPasteTextarea) dom.bulkPasteTextarea.value = ''; });
+  dom.saveAsNewSetBtn?.addEventListener('click', handleSaveAsNewSet);
+  dom.appendImportBtn?.addEventListener('click', handleAppendIntoTargetSet);
+  dom.resetFormFieldsBtn?.addEventListener('click', resetManualFormFields);
+  dom.saveManualQuestionBtn?.addEventListener('click', saveManualQuestion);
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !dom.builderDrawer.classList.contains('translate-x-full')) {
+    if (e.key === 'Escape' && dom.builderDrawer && !dom.builderDrawer.classList.contains('translate-x-full')) {
       closeDrawer();
       return;
     }
-    if (state.view !== 'game' || !dom.builderDrawer.classList.contains('translate-x-full')) return;
+    if (state.view !== 'game' || (dom.builderDrawer && !dom.builderDrawer.classList.contains('translate-x-full'))) return;
     const k = e.key.toLowerCase();
     if (!state.answeredCurrent) {
       const map = { '1': 0, 'a': 0, '2': 1, 'b': 1, '3': 2, 'c': 2, '4': 3, 'd': 3 };
