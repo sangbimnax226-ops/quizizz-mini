@@ -14,6 +14,7 @@ export const LEGACY_SINGLE_PATH = '/quizizz_mini/shared_questions.json';
 export const OWNER_PIN_CODE = '226';
 const OWNER_SESSION_KEY = 'quizizz_mini_owner_unlocked_v1';
 const MY_REQUEST_ID_KEY = 'quizizz_mini_my_request_id_v1';
+const DEFAULT_TIMEOUT_MS = 8000;
 
 export function isOwnerUnlocked() {
   try {
@@ -50,32 +51,59 @@ export function setSavedRequestId(reqId) {
   } catch (e) {}
 }
 
+function normalizePath(path) {
+  const clean = String(path || '').replace(/^\/+/, '').replace(/\.json$/i, '');
+  return `${FIREBASE_DB_URL}/${clean}.json`;
+}
+
+async function fbRequest(path, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(normalizePath(path), {
+      ...options,
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Kết nối Firebase quá thời gian chờ');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fbGet(path) {
-  const res = await fetch(`${FIREBASE_DB_URL}${path}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await fbRequest(path, { cache: 'no-store' });
 }
 
 export async function fbPut(path, data) {
-  const res = await fetch(`${FIREBASE_DB_URL}${path}`, {
+  return await fbRequest(path, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function fbPatch(path, data) {
+  return await fbRequest(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
 }
 
 export async function fbPost(path, data) {
-  const res = await fetch(`${FIREBASE_DB_URL}${path}`, {
+  return await fbRequest(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
 }
 
 export async function fbDelete(path) {
-  const res = await fetch(`${FIREBASE_DB_URL}${path}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await fbRequest(path, { method: 'DELETE' });
 }
