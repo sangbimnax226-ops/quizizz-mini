@@ -25,10 +25,16 @@ const REQUEST_TIMEOUT_MS = 8000;
 
 const GEMINI_STORAGE_KEY = 'quizizz_mini_gemini_api_key_v1';
 const GEMINI_CONFIG = Object.freeze({
-  model: 'gemini-3.8-flash',
+  models: [
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-3.0-flash',
+    'gemini-2.5-flash-lite'
+  ],
   timeoutMs: 30000,
   maxOutputTokens: 520,
-  temperature: 0.3
+  temperature: 0.3,
+  retryPerModel: 1
 });
 
 function buildFbUrl(path) {
@@ -173,7 +179,7 @@ function buildQuestionContextPrompt(item, setName = '') {
   ].filter(Boolean).join('\n');
 }
 
-function formatGeminiError(status, apiMsg) {
+function formatGeminiError(status, apiMsg, modelName = '') {
   if (status === 429) {
     const lower = String(apiMsg || '').toLowerCase();
     const isDaily = lower.includes('day') || lower.includes('rpd') || lower.includes('daily');
@@ -186,18 +192,13 @@ function formatGeminiError(status, apiMsg) {
     return `API Key không hợp lệ hoặc bị từ chối (${apiMsg}). Kiểm tra lại trong nút AI Key.`;
   }
   if (status === 404) {
-    return `Model "${GEMINI_CONFIG.model}" không khả dụng trên dự án hiện tại (${apiMsg}).`;
+    return `Model "${modelName}" không khả dụng trên dự án hiện tại (${apiMsg}).`;
   }
   return `Lỗi gọi Gemini API: ${apiMsg}`;
 }
 
-async function requestGeminiExplanation(promptText) {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    throw new Error('NO_API_KEY');
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_CONFIG.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+async function callSingleGeminiModel(modelName, promptText, apiKey) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_CONFIG.timeoutMs);
 
@@ -218,7 +219,12 @@ async function requestGeminiExplanation(promptText) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const apiMsg = data?.error?.message || `HTTP ${res.status}`;
-      throw new Error(formatGeminiError(res.status, apiMsg));
+      const lower = apiMsg.toLowerCase();
+      const overloaded = res.status === 503 || res.status === 429 || lower.includes('high demand') || lower.includes('overloaded');
+      const err = new Error(formatGeminiError(res.status, apiMsg, modelName));
+      err.overloaded = overloaded;
+      err.status = res.status;
+      throw err;
     }
 
     const parts = data?.candidates?.[0]?.content?.parts || [];
@@ -226,15 +232,47 @@ async function requestGeminiExplanation(promptText) {
     if (!text) {
       throw new Error('Gemini không trả về nội dung giải thích cho câu hỏi này.');
     }
-    return text;
+    return { text, modelUsed: modelName };
   } catch (err) {
     if (err?.name === 'AbortError') {
-      throw new Error('Yêu cầu Gemini quá thời gian chờ. Vui lòng thử lại.');
+      const timeoutErr = new Error('Yêu cầu Gemini quá thời gian chờ. Vui lòng thử lại.');
+      timeoutErr.overloaded = true;
+      throw timeoutErr;
     }
     throw err;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function requestGeminiExplanation(promptText) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('NO_API_KEY');
+  }
+
+  const modelList = Array.isArray(GEMINI_CONFIG.models) && GEMINI_CONFIG.models.length
+    ? GEMINI_CONFIG.models
+    : [GEMINI_CONFIG.model || 'gemini-3.8-flash'];
+
+  let lastError = null;
+
+  for (const modelName of modelList) {
+    for (let attempt = 0; attempt <= GEMINI_CONFIG.retryPerModel; attempt++) {
+      try {
+        return await callSingleGeminiModel(modelName, promptText, apiKey);
+      } catch (err) {
+        lastError = err;
+        if (err?.overloaded && attempt < GEMINI_CONFIG.retryPerModel) {
+          await new Promise(r => setTimeout(r, 1200));
+          continue;
+        }
+        break;
+      }
+    }
+  }
+
+  throw lastError || new Error('Không thể lấy giải thích từ Gemini.');
 }
 
 const LOCAL_PREF_KEY = 'quizizz_mini_pref_v3';
@@ -585,8 +623,13 @@ function closeAiKeyModal() {
   setGeminiKeyInputVisibility(false);
 }
 
-function renderAiResultHtml(text) {
-  return `<div class="text-[11px] font-extrabold text-[#ffd000] uppercase tracking-wider">✨ Giải thích từ Gemini (${escapeHtml(GEMINI_CONFIG.model)})</div><p>${formatAiPlainText(text)}</p>`;
+function renderAiResultHtml(entry) {
+  const text = typeof entry === 'string' ? entry : (entry?.text || '');
+  const modelName = (typeof entry === 'object' && entry?.modelUsed)
+    || (GEMINI_CONFIG.models && GEMINI_CONFIG.models[0])
+    || GEMINI_CONFIG.model
+    || 'Gemini';
+  return `<div class="text-[11px] font-extrabold text-[#ffd000] uppercase tracking-wider">✨ Giải thích từ Gemini (${escapeHtml(modelName)})</div><p>${formatAiPlainText(text)}</p>`;
 }
 
 function escapeHtml(str) {
@@ -1831,9 +1874,9 @@ async function handleAskAiForCurrentQuestion() {
 
   try {
     const prompt = buildQuestionContextPrompt(currentRecord, getActiveMeta().name);
-    const answerText = await requestGeminiExplanation(prompt);
-    state.aiCacheBySharedKey[sharedKey] = answerText;
-    dom.aiFeedbackBox.innerHTML = renderAiResultHtml(answerText);
+    const result = await requestGeminiExplanation(prompt);
+    state.aiCacheBySharedKey[sharedKey] = result;
+    dom.aiFeedbackBox.innerHTML = renderAiResultHtml(result);
   } catch (err) {
     if (err?.message === 'NO_API_KEY') {
       dom.aiFeedbackBox.innerHTML = `<p class="text-amber-200 font-bold">Chưa có Gemini API Key trên trình duyệt này. Đang mở khung cấu hình key...</p>`;
@@ -1940,9 +1983,9 @@ function renderSummary() {
       aiBox.innerHTML = `<p class="text-purple-200/80 animate-pulse">Đang lấy giải thích từ Gemini...</p>`;
       try {
         const prompt = buildQuestionContextPrompt(item, getActiveMeta().name);
-        const answerText = await requestGeminiExplanation(prompt);
-        state.aiCacheBySharedKey[sharedKey] = answerText;
-        aiBox.innerHTML = renderAiResultHtml(answerText);
+        const result = await requestGeminiExplanation(prompt);
+        state.aiCacheBySharedKey[sharedKey] = result;
+        aiBox.innerHTML = renderAiResultHtml(result);
         aiBtn.textContent = '✨ Xem lại AI';
       } catch (err) {
         if (err?.message === 'NO_API_KEY') {
