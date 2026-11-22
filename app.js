@@ -127,11 +127,10 @@ function validateGeminiKeyFormat(rawKey) {
   return { ok: true, value: trimmed };
 }
 
-function formatAiPlainText(rawText) {
+function formatMultilineHtml(rawText) {
   const safe = escapeHtml(String(rawText || '').trim());
   return safe
     .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-extrabold">$1</strong>')
-    .replace(/\n{2,}/g, '</p><p class="mt-1.5">')
     .replace(/\n/g, '<br />');
 }
 
@@ -166,7 +165,7 @@ function buildQuestionContextPrompt(item, setName = '') {
       ? `${letters[item.userChoiceIndex] || item.userChoiceIndex + 1}. ${options[item.userChoiceIndex].text}`
       : 'Không rõ');
 
-  const noteLine = item.explanation ? `Ghi chú sẵn: ${item.explanation}` : '';
+  const noteLine = item.explanation ? `Ghi chú sẵn:\n${item.explanation}` : '';
 
   return [
     'Giải thích ngắn gọn, trọng tâm câu trắc nghiệm này bằng tiếng Việt:',
@@ -175,7 +174,7 @@ function buildQuestionContextPrompt(item, setName = '') {
     optLines,
     `Chọn: ${userLine} (${item.isCorrect ? 'Đúng' : 'Chưa đúng'})`,
     noteLine,
-    'Nêu ngắn gọn: (1) Vì sao đáp án đúng chuẩn; (2) Điểm mấu chốt/bẫy ở lựa chọn của người học hoặc các đáp án còn lại.'
+    'Nêu ngắn gọn: (1) Đối chiếu/đáp án đúng chuẩn; (2) Giải nghĩa thuật ngữ & lý giải học thuật.'
   ].filter(Boolean).join('\n');
 }
 
@@ -629,7 +628,7 @@ function renderAiResultHtml(entry) {
     || (GEMINI_CONFIG.models && GEMINI_CONFIG.models[0])
     || GEMINI_CONFIG.model
     || 'Gemini';
-  return `<div class="text-[11px] font-extrabold text-[#ffd000] uppercase tracking-wider">✨ Giải thích từ Gemini (${escapeHtml(modelName)})</div><p>${formatAiPlainText(text)}</p>`;
+  return `<div class="text-[11px] font-extrabold text-[#ffd000] uppercase tracking-wider">✨ Giải thích từ Gemini (${escapeHtml(modelName)})</div><p>${formatMultilineHtml(text)}</p>`;
 }
 
 function escapeHtml(str) {
@@ -1845,10 +1844,11 @@ function showFeedback({ isCorrect, timedOut, pointsEarned, explanation, correctT
     dom.feedbackPointsPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-200 border border-rose-400/30';
     dom.feedbackPointsPill.textContent = '+0 điểm';
   }
-  const details = [];
-  if (!isCorrect && correctText) details.push(`Đáp án đúng: "${correctText}".`);
-  if (explanation) details.push(explanation);
-  dom.feedbackExplanation.textContent = details.join(' ');
+
+  const parts = [];
+  if (!isCorrect && correctText) parts.push(`Đáp án đúng: "${correctText}".`);
+  if (explanation) parts.push(explanation);
+  dom.feedbackExplanation.innerHTML = formatMultilineHtml(parts.join('\n'));
 }
 
 async function handleAskAiForCurrentQuestion() {
@@ -1963,7 +1963,7 @@ function renderSummary() {
           ${escapeHtml(rightChoiceText)}
         </div>
       </div>
-      ${item.explanation ? `<p class="text-xs sm:text-sm text-purple-100/90"><strong class="text-[#ffd000]">Giải thích:</strong> ${escapeHtml(item.explanation)}</p>` : ''}
+      ${item.explanation ? `<div class="text-xs sm:text-sm text-purple-100/90 leading-relaxed"><strong class="text-[#ffd000]">Giải thích:</strong><br />${formatMultilineHtml(item.explanation)}</div>` : ''}
       <div data-ai-box="1" class="${cachedAi ? '' : 'hidden '}rounded-xl bg-black/35 border border-[#ff2a85]/35 p-3 text-xs sm:text-sm text-purple-100 leading-relaxed space-y-1">${cachedAi ? renderAiResultHtml(cachedAi) : ''}</div>
     `;
 
@@ -2097,41 +2097,70 @@ function parseQuizInput(raw, fallbackTimeLimit = 20) {
     });
   }
 
-  const blocks = text.split(/\n\s*\n+/);
+  // Tách các câu theo dòng bắt đầu bằng "Câu <số>:" hoặc khi có khối trống ngăn cách
+  const normalized = text.replace(/\r\n/g, '\n');
+  const rawBlocks = normalized.split(/\n(?=(?:câu\s*\d+\s*[:\.]))/i);
   const result = [];
-  blocks.forEach((block, bIdx) => {
-    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    if (!lines.length) return;
-    let question = '';
-    const options = [];
-    let correctIndex = 0;
-    let explanation = '';
 
-    lines.forEach(line => {
-      const expMatch = line.match(/^(?:giải thích|explanation|lời giải)\s*:\s*(.+)$/i);
-      if (expMatch) { explanation = expMatch[1].trim(); return; }
-      const optMatch = line.match(/^(\*)?\s*([A-Da-d1-4])\s*[\.\)\:\-]\s*(.+)$/);
-      if (optMatch && options.length < 4) {
-        const cleanOpt = optMatch[3].replace(/\*+$/, '').trim();
-        const pos = options.length;
-        options.push(cleanOpt);
-        if (optMatch[1] || /\*$/.test(optMatch[3].trim())) correctIndex = pos;
-        return;
-      }
-      if (!question) question = line.replace(/^(?:câu\s*\d+\s*[\.\:\-]?)\s*/i, '').trim();
-      else if (options.length === 0) question += ' ' + line;
-    });
+  rawBlocks.forEach((section, bIdx) => {
+    const subBlocks = section.split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+    subBlocks.forEach((block, sIdx) => {
+      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return;
 
-    if (question && options.length === 4 && options.every(Boolean)) {
-      result.push({
-        id: `q-txt-${Date.now()}-${bIdx}`,
-        question,
-        options,
-        correctIndex,
-        timeLimit: fallbackTimeLimit,
-        explanation
+      let question = '';
+      const options = [];
+      let correctIndex = 0;
+      const explanationLines = [];
+      let inExplanation = false;
+
+      lines.forEach(line => {
+        if (inExplanation) {
+          // Dừng khối giải thích nếu gặp câu hỏi mới
+          if (/^(?:câu\s*\d+\s*[:\.])/i.test(line)) {
+            inExplanation = false;
+          } else {
+            explanationLines.push(line);
+            return;
+          }
+        }
+
+        const expStart = line.match(/^(?:giải thích|explanation|lời giải)\s*:\s*(.*)$/i);
+        if (expStart) {
+          inExplanation = true;
+          if (expStart[1].trim()) explanationLines.push(expStart[1].trim());
+          return;
+        }
+
+        const optMatch = line.match(/^(\*)?\s*([A-Da-d1-4])\s*[\.\)\:\-]\s*(.+)$/);
+        if (optMatch && options.length < 4 && explanationLines.length === 0) {
+          const rawOpt = optMatch[3].trim();
+          const hasStar = Boolean(optMatch[1]) || /\*+$/.test(rawOpt);
+          const cleanOpt = rawOpt.replace(/\*+$/, '').trim();
+          const pos = options.length;
+          options.push(cleanOpt);
+          if (hasStar) correctIndex = pos;
+          return;
+        }
+
+        if (!question && options.length === 0) {
+          question = line.replace(/^(?:câu\s*\d+\s*[:\.\-]?)\s*/i, '').trim();
+        } else if (options.length === 0) {
+          question += ' ' + line;
+        }
       });
-    }
+
+      if (question && options.length === 4 && options.every(Boolean)) {
+        result.push({
+          id: `q-txt-${Date.now()}-${bIdx}-${sIdx}`,
+          question,
+          options,
+          correctIndex,
+          timeLimit: fallbackTimeLimit,
+          explanation: explanationLines.join('\n').trim()
+        });
+      }
+    });
   });
 
   if (result.length === 0) throw new Error('Không đọc được câu hỏi hợp lệ.');
