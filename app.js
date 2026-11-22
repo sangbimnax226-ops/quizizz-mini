@@ -26,7 +26,7 @@ const REQUEST_TIMEOUT_MS = 8000;
 const GEMINI_STORAGE_KEY = 'quizizz_mini_gemini_api_key_v1';
 const GEMINI_CONFIG = Object.freeze({
   model: 'gemini-3.8-flash',
-  timeoutMs: 15000,
+  timeoutMs: 30000,
   maxOutputTokens: 520,
   temperature: 0.3
 });
