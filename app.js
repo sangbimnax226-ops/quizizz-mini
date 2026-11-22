@@ -23,6 +23,14 @@ const LEGACY_SINGLE_ENDPOINT = LEGACY_SINGLE_PATH || '/quizizz_mini/shared_quest
 const OWNER_PIN_CODE = PIN_FROM_FB || '226';
 const REQUEST_TIMEOUT_MS = 8000;
 
+const GEMINI_STORAGE_KEY = 'quizizz_mini_gemini_api_key_v1';
+const GEMINI_CONFIG = Object.freeze({
+  model: 'gemini-2.5-flash',
+  timeoutMs: 15000,
+  maxOutputTokens: 520,
+  temperature: 0.3
+});
+
 function buildFbUrl(path) {
   const clean = String(path || '').replace(/^\/+/, '').replace(/\.json$/i, '');
   return `${DB_BASE_URL}/${clean}.json`;
@@ -78,6 +86,155 @@ async function fbPost(path, data) {
 
 async function fbDelete(path) {
   return await fbRequest(path, { method: 'DELETE' });
+}
+
+function getGeminiApiKey() {
+  try {
+    return (localStorage.getItem(GEMINI_STORAGE_KEY) || '').trim();
+  } catch (e) {
+    return '';
+  }
+}
+
+function setGeminiApiKey(key) {
+  try {
+    const clean = String(key || '').trim();
+    if (clean) localStorage.setItem(GEMINI_STORAGE_KEY, clean);
+    else localStorage.removeItem(GEMINI_STORAGE_KEY);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function validateGeminiKeyFormat(rawKey) {
+  const trimmed = String(rawKey || '').trim();
+  if (!trimmed) {
+    return { ok: false, message: 'Hãy dán Gemini API Key trước khi lưu.' };
+  }
+  if (/\s/.test(trimmed)) {
+    return { ok: false, message: 'API Key chứa khoảng trắng. Kiểm tra lại trước khi lưu.' };
+  }
+  if (trimmed.length < 20) {
+    return { ok: false, message: 'API Key quá ngắn, có thể bị copy thiếu ký tự.' };
+  }
+  return { ok: true, value: trimmed };
+}
+
+function formatAiPlainText(rawText) {
+  const safe = escapeHtml(String(rawText || '').trim());
+  return safe
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-extrabold">$1</strong>')
+    .replace(/\n{2,}/g, '</p><p class="mt-1.5">')
+    .replace(/\n/g, '<br />');
+}
+
+function getSharedAiCacheKey(item) {
+  const letters = ['A', 'B', 'C', 'D'];
+  const options = Array.isArray(item.shuffledOptions)
+    ? item.shuffledOptions
+    : (item.options || []).map((text, i) => ({ text, isCorrect: i === item.correctIndex }));
+  const userLabel = item.timedOut
+    ? 'TIMEOUT'
+    : (item.userChoiceIndex >= 0 && options[item.userChoiceIndex]
+      ? `${letters[item.userChoiceIndex] || item.userChoiceIndex}:${options[item.userChoiceIndex].text}`
+      : 'NONE');
+  const correctText = options.find(o => o.isCorrect)?.text || '';
+  return `${item.question}__${correctText}__${userLabel}`;
+}
+
+function buildQuestionContextPrompt(item, setName = '') {
+  const letters = ['A', 'B', 'C', 'D'];
+  const options = Array.isArray(item.shuffledOptions)
+    ? item.shuffledOptions
+    : (item.options || []).map((text, i) => ({ text, isCorrect: i === item.correctIndex }));
+
+  const optLines = options.map((o, i) => {
+    const tag = o.isCorrect ? ' [Đúng]' : '';
+    return `${letters[i] || i + 1}. ${o.text}${tag}`;
+  }).join('\n');
+
+  const userLine = item.timedOut
+    ? 'Hết giờ'
+    : (item.userChoiceIndex >= 0 && options[item.userChoiceIndex]
+      ? `${letters[item.userChoiceIndex] || item.userChoiceIndex + 1}. ${options[item.userChoiceIndex].text}`
+      : 'Không rõ');
+
+  const noteLine = item.explanation ? `Ghi chú sẵn: ${item.explanation}` : '';
+
+  return [
+    'Giải thích ngắn gọn, trọng tâm câu trắc nghiệm này bằng tiếng Việt:',
+    setName ? `Đề: ${setName}` : '',
+    `Câu: ${item.question}`,
+    optLines,
+    `Chọn: ${userLine} (${item.isCorrect ? 'Đúng' : 'Chưa đúng'})`,
+    noteLine,
+    'Nêu ngắn gọn: (1) Vì sao đáp án đúng chuẩn; (2) Điểm mấu chốt/bẫy ở lựa chọn của người học hoặc các đáp án còn lại.'
+  ].filter(Boolean).join('\n');
+}
+
+function formatGeminiError(status, apiMsg) {
+  if (status === 429) {
+    const lower = String(apiMsg || '').toLowerCase();
+    const isDaily = lower.includes('day') || lower.includes('rpd') || lower.includes('daily');
+    if (isDaily) {
+      return `Đã chạm hạn mức lượt gọi theo ngày (RPD) của gói miễn phí (${apiMsg}). Vui lòng chờ đến chu kỳ reset ngày.`;
+    }
+    return `Đã chạm giới hạn tốc độ gọi mỗi phút (RPM/TPM) của gói miễn phí (${apiMsg}). Thử lại sau 30–60 giây.`;
+  }
+  if (status === 400 || status === 403) {
+    return `API Key không hợp lệ hoặc bị từ chối (${apiMsg}). Kiểm tra lại trong nút AI Key.`;
+  }
+  if (status === 404) {
+    return `Model "${GEMINI_CONFIG.model}" không khả dụng trên dự án hiện tại (${apiMsg}).`;
+  }
+  return `Lỗi gọi Gemini API: ${apiMsg}`;
+}
+
+async function requestGeminiExplanation(promptText) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('NO_API_KEY');
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_CONFIG.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_CONFIG.timeoutMs);
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: promptText }] }],
+        generationConfig: {
+          temperature: GEMINI_CONFIG.temperature,
+          maxOutputTokens: GEMINI_CONFIG.maxOutputTokens
+        }
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const apiMsg = data?.error?.message || `HTTP ${res.status}`;
+      throw new Error(formatGeminiError(res.status, apiMsg));
+    }
+
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const text = parts.map(p => p.text || '').join('').trim();
+    if (!text) {
+      throw new Error('Gemini không trả về nội dung giải thích cho câu hỏi này.');
+    }
+    return text;
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Yêu cầu Gemini quá thời gian chờ. Vui lòng thử lại.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const LOCAL_PREF_KEY = 'quizizz_mini_pref_v3';
@@ -261,6 +418,8 @@ const state = {
   noTimeLimit: false,
   timerInterval: null,
   history: [],
+  aiCacheBySharedKey: {},
+  aiPendingKeys: new Set(),
   drawerTab: 'bulk',
   editingIndex: null
 };
@@ -269,6 +428,15 @@ const dom = {
   toastContainer: document.getElementById('toastContainer'),
   homeLogoBtn: document.getElementById('homeLogoBtn'),
   refreshCloudBtn: document.getElementById('refreshCloudBtn'),
+  aiKeyModalBtn: document.getElementById('aiKeyModalBtn'),
+  aiKeyStatusLabel: document.getElementById('aiKeyStatusLabel'),
+  aiKeyOverlay: document.getElementById('aiKeyOverlay'),
+  closeAiKeyModalBtn: document.getElementById('closeAiKeyModalBtn'),
+  toggleGeminiKeyVisibilityBtn: document.getElementById('toggleGeminiKeyVisibilityBtn'),
+  geminiApiKeyInput: document.getElementById('geminiApiKeyInput'),
+  aiKeySavedHint: document.getElementById('aiKeySavedHint'),
+  clearGeminiApiKeyBtn: document.getElementById('clearGeminiApiKeyBtn'),
+  saveGeminiApiKeyBtn: document.getElementById('saveGeminiApiKeyBtn'),
   soundToggleBtn: document.getElementById('soundToggleBtn'),
   soundIcon: document.getElementById('soundIcon'),
   soundLabel: document.getElementById('soundLabel'),
@@ -335,6 +503,8 @@ const dom = {
   feedbackTitle: document.getElementById('feedbackTitle'),
   feedbackPointsPill: document.getElementById('feedbackPointsPill'),
   feedbackExplanation: document.getElementById('feedbackExplanation'),
+  askAiCurrentBtn: document.getElementById('askAiCurrentBtn'),
+  aiFeedbackBox: document.getElementById('aiFeedbackBox'),
   nextQuestionBtn: document.getElementById('nextQuestionBtn'),
   summaryTrophy: document.getElementById('summaryTrophy'),
   summaryHeadline: document.getElementById('summaryHeadline'),
@@ -381,6 +551,43 @@ const dom = {
   drawerTotalCount: document.getElementById('drawerTotalCount'),
   playFromDrawerBtn: document.getElementById('playFromDrawerBtn')
 };
+
+function setGeminiKeyInputVisibility(visible) {
+  if (!dom.geminiApiKeyInput || !dom.toggleGeminiKeyVisibilityBtn) return;
+  dom.geminiApiKeyInput.type = visible ? 'text' : 'password';
+  dom.toggleGeminiKeyVisibilityBtn.textContent = visible ? '🙈 Ẩn key' : '👁️ Hiện key';
+}
+
+function updateAiKeyBadge() {
+  const hasKey = Boolean(getGeminiApiKey());
+  if (dom.aiKeyStatusLabel) {
+    dom.aiKeyStatusLabel.textContent = hasKey ? 'AI Key ✓' : 'AI Key';
+  }
+  if (dom.aiKeySavedHint) {
+    dom.aiKeySavedHint.textContent = hasKey
+      ? 'Đang có khóa lưu trên trình duyệt này (ẩn để bảo mật).'
+      : 'Chưa có khóa nào được lưu trên trình duyệt này.';
+  }
+}
+
+function openAiKeyModal() {
+  if (!dom.aiKeyOverlay) return;
+  if (dom.geminiApiKeyInput) dom.geminiApiKeyInput.value = '';
+  setGeminiKeyInputVisibility(false);
+  updateAiKeyBadge();
+  dom.aiKeyOverlay.classList.remove('hidden');
+  setTimeout(() => dom.geminiApiKeyInput?.focus(), 80);
+}
+
+function closeAiKeyModal() {
+  dom.aiKeyOverlay?.classList.add('hidden');
+  if (dom.geminiApiKeyInput) dom.geminiApiKeyInput.value = '';
+  setGeminiKeyInputVisibility(false);
+}
+
+function renderAiResultHtml(text) {
+  return `<div class="text-[11px] font-extrabold text-[#ffd000] uppercase tracking-wider">✨ Giải thích từ Gemini (${escapeHtml(GEMINI_CONFIG.model)})</div><p>${formatAiPlainText(text)}</p>`;
+}
 
 function escapeHtml(str) {
   return String(str || '')
@@ -1160,6 +1367,7 @@ function syncAllUI() {
   const count = getActiveDisplayCount();
   const hasQuestions = count > 0;
 
+  updateAiKeyBadge();
   renderSetSelector();
   if (dom.headerCountPill) dom.headerCountPill.textContent = count;
 
@@ -1354,6 +1562,8 @@ async function startGame(customQuestions = null) {
   state.maxStreak = 0;
   state.answeredCurrent = false;
   state.history = [];
+  state.aiCacheBySharedKey = {};
+  state.aiPendingKeys.clear();
 
   switchView('game');
   renderCurrentQuestion();
@@ -1393,6 +1603,14 @@ function renderCurrentQuestion() {
   clearTimer();
   state.answeredCurrent = false;
   dom.feedbackBanner?.classList.add('hidden');
+  if (dom.aiFeedbackBox) {
+    dom.aiFeedbackBox.classList.add('hidden');
+    dom.aiFeedbackBox.innerHTML = '';
+  }
+  if (dom.askAiCurrentBtn) {
+    dom.askAiCurrentBtn.disabled = false;
+    dom.askAiCurrentBtn.textContent = '✨ Giải thích bằng AI';
+  }
 
   const qItem = state.deck[state.currentIndex];
   const total = state.deck.length;
@@ -1590,6 +1808,48 @@ function showFeedback({ isCorrect, timedOut, pointsEarned, explanation, correctT
   dom.feedbackExplanation.textContent = details.join(' ');
 }
 
+async function handleAskAiForCurrentQuestion() {
+  if (!state.answeredCurrent) return;
+  const currentRecord = state.history[state.history.length - 1];
+  if (!currentRecord || !dom.aiFeedbackBox) return;
+
+  const sharedKey = getSharedAiCacheKey(currentRecord);
+  if (state.aiPendingKeys.has(sharedKey)) return;
+
+  dom.aiFeedbackBox.classList.remove('hidden');
+  if (state.aiCacheBySharedKey[sharedKey]) {
+    dom.aiFeedbackBox.innerHTML = renderAiResultHtml(state.aiCacheBySharedKey[sharedKey]);
+    return;
+  }
+
+  state.aiPendingKeys.add(sharedKey);
+  if (dom.askAiCurrentBtn) {
+    dom.askAiCurrentBtn.disabled = true;
+    dom.askAiCurrentBtn.textContent = '⏳ Đang hỏi AI...';
+  }
+  dom.aiFeedbackBox.innerHTML = `<p class="text-purple-200/80 animate-pulse">Đang phân tích câu hỏi và các phương án...</p>`;
+
+  try {
+    const prompt = buildQuestionContextPrompt(currentRecord, getActiveMeta().name);
+    const answerText = await requestGeminiExplanation(prompt);
+    state.aiCacheBySharedKey[sharedKey] = answerText;
+    dom.aiFeedbackBox.innerHTML = renderAiResultHtml(answerText);
+  } catch (err) {
+    if (err?.message === 'NO_API_KEY') {
+      dom.aiFeedbackBox.innerHTML = `<p class="text-amber-200 font-bold">Chưa có Gemini API Key trên trình duyệt này. Đang mở khung cấu hình key...</p>`;
+      openAiKeyModal();
+    } else {
+      dom.aiFeedbackBox.innerHTML = `<p class="text-rose-300 font-bold">${escapeHtml(err?.message || 'Không thể lấy giải thích từ AI.')}</p>`;
+    }
+  } finally {
+    state.aiPendingKeys.delete(sharedKey);
+    if (dom.askAiCurrentBtn) {
+      dom.askAiCurrentBtn.disabled = false;
+      dom.askAiCurrentBtn.textContent = '✨ Giải thích bằng AI';
+    }
+  }
+}
+
 function nextQuestion() {
   SoundEngine.click();
   if (state.currentIndex + 1 < state.deck.length) {
@@ -1630,19 +1890,24 @@ function renderSummary() {
 
   if (!dom.reviewList) return;
   const reviewFrag = document.createDocumentFragment();
-  state.history.forEach((item, idx) => {
+  state.history.forEach((item) => {
     const card = document.createElement('div');
     const boxStyle = item.isCorrect ? 'border-emerald-400/35 bg-emerald-950/25' : 'border-rose-400/35 bg-rose-950/25';
     const userChoiceText = item.userChoiceIndex >= 0 && item.shuffledOptions[item.userChoiceIndex]
       ? item.shuffledOptions[item.userChoiceIndex].text
       : 'Không chọn (Hết thời gian)';
     const rightChoiceText = item.shuffledOptions[item.correctIndex]?.text || '';
+    const sharedKey = getSharedAiCacheKey(item);
+    const cachedAi = state.aiCacheBySharedKey[sharedKey];
 
     card.className = `rounded-2xl border ${boxStyle} p-4 sm:p-5 space-y-2.5`;
     card.innerHTML = `
       <div class="flex flex-wrap items-center justify-between gap-2">
         <span class="text-xs font-extrabold uppercase tracking-wider text-purple-200/80">Câu ${idx + 1}</span>
-        <span class="text-xs font-extrabold">${item.isCorrect ? '✓ Đúng' : '✕ Chưa đúng'}</span>
+        <div class="flex items-center gap-2">
+          <button type="button" data-ai-review="1" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-[#ffd000]/40 text-[#ffd000] text-[11px] font-extrabold disabled:opacity-50 cursor-pointer">${cachedAi ? '✨ Xem lại AI' : '✨ Hỏi AI'}</button>
+          <span class="text-xs font-extrabold">${item.isCorrect ? '✓ Đúng' : '✕ Chưa đúng'}</span>
+        </div>
       </div>
       <p class="font-bold text-sm sm:text-base text-white">${escapeHtml(item.question)}</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs sm:text-sm">
@@ -1656,7 +1921,42 @@ function renderSummary() {
         </div>
       </div>
       ${item.explanation ? `<p class="text-xs sm:text-sm text-purple-100/90"><strong class="text-[#ffd000]">Giải thích:</strong> ${escapeHtml(item.explanation)}</p>` : ''}
+      <div data-ai-box="1" class="${cachedAi ? '' : 'hidden '}rounded-xl bg-black/35 border border-[#ff2a85]/35 p-3 text-xs sm:text-sm text-purple-100 leading-relaxed space-y-1">${cachedAi ? renderAiResultHtml(cachedAi) : ''}</div>
     `;
+
+    const aiBtn = card.querySelector('[data-ai-review="1"]');
+    const aiBox = card.querySelector('[data-ai-box="1"]');
+    aiBtn?.addEventListener('click', async () => {
+      if (!aiBox || state.aiPendingKeys.has(sharedKey)) return;
+      aiBox.classList.remove('hidden');
+      if (state.aiCacheBySharedKey[sharedKey]) {
+        aiBox.innerHTML = renderAiResultHtml(state.aiCacheBySharedKey[sharedKey]);
+        aiBtn.textContent = '✨ Xem lại AI';
+        return;
+      }
+      state.aiPendingKeys.add(sharedKey);
+      aiBtn.disabled = true;
+      aiBtn.textContent = '⏳ Đang hỏi...';
+      aiBox.innerHTML = `<p class="text-purple-200/80 animate-pulse">Đang lấy giải thích từ Gemini...</p>`;
+      try {
+        const prompt = buildQuestionContextPrompt(item, getActiveMeta().name);
+        const answerText = await requestGeminiExplanation(prompt);
+        state.aiCacheBySharedKey[sharedKey] = answerText;
+        aiBox.innerHTML = renderAiResultHtml(answerText);
+        aiBtn.textContent = '✨ Xem lại AI';
+      } catch (err) {
+        if (err?.message === 'NO_API_KEY') {
+          aiBox.innerHTML = `<p class="text-amber-200 font-bold">Chưa có Gemini API Key trên trình duyệt này. Đang mở khung cấu hình key...</p>`;
+          openAiKeyModal();
+        } else {
+          aiBox.innerHTML = `<p class="text-rose-300 font-bold">${escapeHtml(err?.message || 'Không thể lấy giải thích từ AI.')}</p>`;
+        }
+      } finally {
+        state.aiPendingKeys.delete(sharedKey);
+        aiBtn.disabled = false;
+      }
+    });
+
     reviewFrag.appendChild(card);
   });
   dom.reviewList.innerHTML = '';
@@ -1925,6 +2225,36 @@ async function saveManualQuestion() {
 }
 
 function bindEvents() {
+  dom.aiKeyModalBtn?.addEventListener('click', openAiKeyModal);
+  dom.closeAiKeyModalBtn?.addEventListener('click', closeAiKeyModal);
+  dom.toggleGeminiKeyVisibilityBtn?.addEventListener('click', () => {
+    const currentlyHidden = dom.geminiApiKeyInput?.type === 'password';
+    setGeminiKeyInputVisibility(currentlyHidden);
+  });
+  dom.aiKeyOverlay?.addEventListener('click', (e) => {
+    if (e.target === dom.aiKeyOverlay) closeAiKeyModal();
+  });
+  dom.saveGeminiApiKeyBtn?.addEventListener('click', () => {
+    const check = validateGeminiKeyFormat(dom.geminiApiKeyInput?.value || '');
+    if (!check.ok) {
+      showToast(check.message, 'error');
+      dom.geminiApiKeyInput?.focus();
+      return;
+    }
+    setGeminiApiKey(check.value);
+    updateAiKeyBadge();
+    closeAiKeyModal();
+    showToast('Đã lưu Gemini API Key vào trình duyệt!', 'success');
+  });
+  dom.clearGeminiApiKeyBtn?.addEventListener('click', () => {
+    setGeminiApiKey('');
+    if (dom.geminiApiKeyInput) dom.geminiApiKeyInput.value = '';
+    setGeminiKeyInputVisibility(false);
+    updateAiKeyBadge();
+    showToast('Đã xóa Gemini API Key khỏi trình duyệt.', 'info');
+  });
+  dom.askAiCurrentBtn?.addEventListener('click', handleAskAiForCurrentQuestion);
+
   dom.ownerUnlockBtn?.addEventListener('click', unlockOwnerMode);
   dom.ownerLockBtn?.addEventListener('click', lockOwnerMode);
   dom.ownerPinInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockOwnerMode(); });
@@ -2051,6 +2381,10 @@ function bindEvents() {
   dom.saveManualQuestionBtn?.addEventListener('click', saveManualQuestion);
 
   window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dom.aiKeyOverlay && !dom.aiKeyOverlay.classList.contains('hidden')) {
+      closeAiKeyModal();
+      return;
+    }
     if (e.key === 'Escape' && dom.builderDrawer && !dom.builderDrawer.classList.contains('translate-x-full')) {
       closeDrawer();
       return;
