@@ -41,6 +41,10 @@
 
       <div class="flex items-center gap-2">
         <button id="refreshCloudBtn" type="button" class="px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/15 text-purple-100 cursor-pointer" title="Đồng bộ lại từ Firebase">🔄</button>
+        <button id="aiKeyModalBtn" type="button" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/15 text-purple-100 cursor-pointer" title="Cấu hình Gemini API Key (lưu tại trình duyệt)">
+          <span>🤖</span>
+          <span id="aiKeyStatusLabel" class="hidden sm:inline">AI Key</span>
+        </button>
         <button id="soundToggleBtn" type="button" aria-pressed="true" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/15 text-purple-100 cursor-pointer">
           <span id="soundIcon">🔊</span>
           <span id="soundLabel" class="hidden sm:inline">Âm thanh: Bật</span>
@@ -70,6 +74,31 @@
       </div>
     </div>
   </header>
+
+  <!-- Gemini API Key Modal (localStorage only) -->
+  <div id="aiKeyOverlay" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="glass-panel rounded-3xl w-full max-w-md p-5 sm:p-6 space-y-4 border border-white/20 animate-pop-in">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-base sm:text-lg font-black text-white">🤖 Cấu hình Gemini API Key</h2>
+        <button id="closeAiKeyModalBtn" type="button" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 font-bold text-xs cursor-pointer">✕</button>
+      </div>
+      <p class="text-xs text-purple-100/80 leading-relaxed">
+        Key chỉ được lưu cục bộ trong <code class="text-[#ffd000]">localStorage</code> trên trình duyệt hiện tại để gọi giải thích câu hỏi, <strong>không</strong> lưu vào mã nguồn đẩy lên GitHub.
+      </p>
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between gap-2">
+          <label for="geminiApiKeyInput" class="block text-xs font-extrabold text-[#ffd000]">Gemini API Key</label>
+          <button id="toggleGeminiKeyVisibilityBtn" type="button" class="text-[11px] font-bold text-purple-200 hover:text-[#ffd000] cursor-pointer">👁️ Hiện key</button>
+        </div>
+        <input id="geminiApiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Dán khóa API từ Google AI Studio..." class="w-full rounded-xl bg-black/45 border border-white/15 px-3.5 py-2.5 text-xs sm:text-sm font-mono text-white outline-none focus:border-[#ffd000]" />
+        <p id="aiKeySavedHint" class="text-[11px] font-bold text-purple-200/75"></p>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
+        <button id="clearGeminiApiKeyBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/35 text-rose-200 cursor-pointer">Xóa key</button>
+        <button id="saveGeminiApiKeyBtn" type="button" class="px-4 py-2 rounded-xl text-xs font-extrabold bg-[#ffd000] text-[#1e0929] hover:brightness-105 cursor-pointer">Lưu vào trình duyệt</button>
+      </div>
+    </div>
+  </div>
 
   <main class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
     <!-- LOBBY VIEW -->
@@ -260,7 +289,7 @@
 
       <div id="answersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4"></div>
 
-      <div id="feedbackBanner" class="hidden glass-panel rounded-2xl p-4 sm:p-5 border border-white/20 animate-pop-in">
+      <div id="feedbackBanner" class="hidden glass-panel rounded-2xl p-4 sm:p-5 border border-white/20 animate-pop-in space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div class="flex items-center gap-2">
@@ -269,8 +298,12 @@
             </div>
             <p id="feedbackExplanation" class="text-xs sm:text-sm text-purple-100/90 mt-1"></p>
           </div>
-          <button id="nextQuestionBtn" type="button" class="px-6 py-3 rounded-2xl font-extrabold text-sm bg-[#ff2a85] text-white cursor-pointer shrink-0">Câu tiếp theo →</button>
+          <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <button id="askAiCurrentBtn" type="button" class="px-4 py-3 rounded-2xl font-extrabold text-xs sm:text-sm bg-white/10 hover:bg-white/15 border border-[#ffd000]/45 text-[#ffd000] disabled:opacity-50 cursor-pointer">✨ Giải thích bằng AI</button>
+            <button id="nextQuestionBtn" type="button" class="px-6 py-3 rounded-2xl font-extrabold text-sm bg-[#ff2a85] text-white cursor-pointer">Câu tiếp theo →</button>
+          </div>
         </div>
+        <div id="aiFeedbackBox" class="hidden rounded-2xl bg-black/35 border border-[#ff2a85]/35 p-3.5 sm:p-4 text-xs sm:text-sm text-purple-100 leading-relaxed space-y-1.5"></div>
       </div>
     </section>
 
