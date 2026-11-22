@@ -25,7 +25,7 @@ const REQUEST_TIMEOUT_MS = 8000;
 
 const GEMINI_STORAGE_KEY = 'quizizz_mini_gemini_api_key_v1';
 const GEMINI_CONFIG = Object.freeze({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.8-flash',
   timeoutMs: 15000,
   maxOutputTokens: 520,
   temperature: 0.3
@@ -1890,7 +1890,7 @@ function renderSummary() {
 
   if (!dom.reviewList) return;
   const reviewFrag = document.createDocumentFragment();
-  state.history.forEach((item) => {
+  state.history.forEach((item, idx) => {
     const card = document.createElement('div');
     const boxStyle = item.isCorrect ? 'border-emerald-400/35 bg-emerald-950/25' : 'border-rose-400/35 bg-rose-950/25';
     const userChoiceText = item.userChoiceIndex >= 0 && item.shuffledOptions[item.userChoiceIndex]
